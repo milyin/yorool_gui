@@ -5,17 +5,40 @@ use ggez::event::{self, EventHandler};
 use ggez::graphics::{self, Color};
 use ggez::conf::{WindowSetup, WindowMode};
 
-struct GuiDemoState {
+use yorool_gui::gui::button;
+use yorool_gui::gui::button::Button;
+use yorool_gui::gui::grid::Grid;
 
+#[allow(dead_code)]
+enum GuiDemoQ {
+    ButtonA(button::Query),
+    ButtonB(button::Query)
 }
 
-impl GuiDemoState {
+#[allow(dead_code)]
+enum GuiDemoR {
+    ButtonA(button::Response),
+    ButtonB(button::Response)
+}
+
+struct GuiDemoState<'a> {
+    grid: Grid<'a,GuiDemoQ,GuiDemoR>
+}
+
+impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        Ok(Self{})
+        fn to_button_a(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
+            { if let GuiDemoQ::ButtonA(bq) = q { Ok(bq ) } else { Err(q) } }
+        fn to_button_b(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
+            { if let GuiDemoQ::ButtonB(bq) = q { Ok(bq ) } else { Err(q) } }
+        let mut grid = Grid::new();
+        grid.add_widget(Button::new(to_button_a, GuiDemoR::ButtonA))
+            .add_widget(Button::new(to_button_b, GuiDemoR::ButtonB));
+        Ok(Self{grid})
     }
 }
 
-impl EventHandler for GuiDemoState {
+impl EventHandler for GuiDemoState<'_> {
 
     fn update(&mut self,_ctx: &mut Context) -> GameResult {
         Ok(())
@@ -23,6 +46,7 @@ impl EventHandler for GuiDemoState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, Color::new(0.,0.,0.,0.));
+        self.grid.draw(ctx)?;
         graphics::present(ctx)
     }
 

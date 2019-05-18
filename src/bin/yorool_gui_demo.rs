@@ -8,17 +8,20 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::grid::Grid;
+use yorool_gui::request::Handler;
 
 #[allow(dead_code)]
 enum GuiDemoQ {
     ButtonA(button::Query),
-    ButtonB(button::Query)
+    ButtonB(button::Query),
+    ButtonC(button::Query)
 }
 
 #[allow(dead_code)]
 enum GuiDemoR {
     ButtonA(button::Response),
-    ButtonB(button::Response)
+    ButtonB(button::Response),
+    ButtonC(button::Response)
 }
 
 struct GuiDemoState<'a> {
@@ -31,9 +34,16 @@ impl GuiDemoState<'_> {
             { if let GuiDemoQ::ButtonA(bq) = q { Ok(bq ) } else { Err(q) } }
         fn to_button_b(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
             { if let GuiDemoQ::ButtonB(bq) = q { Ok(bq ) } else { Err(q) } }
-        let mut grid = Grid::new();
-        grid.add_widget(Button::new(to_button_a, GuiDemoR::ButtonA))
-            .add_widget(Button::new(to_button_b, GuiDemoR::ButtonB));
+        fn to_button_c(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
+        { if let GuiDemoQ::ButtonC(bq) = q { Ok(bq ) } else { Err(q) } }
+        let mut grid = Grid::new()
+            .add_widget(Button::new(to_button_a, GuiDemoR::ButtonA))
+            .add_widget(Grid::new()
+                .add_widget(Button::new(to_button_b, GuiDemoR::ButtonB))
+                .add_widget(Button::new(to_button_c, GuiDemoR::ButtonC))
+            );
+        let _ = grid.handle(GuiDemoQ::ButtonA(button::Query::SetState(true)));
+        let _ = grid.handle(GuiDemoQ::ButtonC(button::Query::SetState(true)));
         Ok(Self{grid})
     }
 }

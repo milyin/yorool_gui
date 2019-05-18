@@ -68,7 +68,8 @@ impl<Q,R> EventHandler for Button<Q,R>
         rect.w -= 10.;
         rect.h -= 10.;
         let mesh = MeshBuilder::new()
-            .rectangle(DrawMode::stroke(1.), rect, graphics::WHITE)
+            .rectangle(if self.pressed { DrawMode::fill() } else {DrawMode::stroke(1.)},
+                       rect, graphics::WHITE)
             .build(ctx)?;
         graphics::draw(
             ctx,

@@ -18,7 +18,7 @@ impl<'a,Q,R> Grid<'a,Q,R> {
         }
     }
 
-    pub fn add_widget<W>(&mut self, widget: W) -> &mut Self
+    pub fn add_widget<W>(mut self, widget: W) -> Self
         where W: Widget<Q,R> + 'a
     {
         self.widgets.push(Box::new(widget));

@@ -1,7 +1,7 @@
 use crate::request::Handler;
 use ggez::event::EventHandler;
 use ggez::{Context, GameResult};
-use ggez::graphics::{self, Rect, Color, MeshBuilder, DrawMode, DrawParam};
+use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
 use crate::gui::Layoutable;
 
 #[derive(Debug)]
@@ -62,9 +62,11 @@ impl<Q,R> EventHandler for Button<Q,R>
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        graphics::clear(ctx, Color::new(0., 0., 0., 0.));
-        let (w, h) = graphics::drawable_size(ctx);
-        let rect = Rect::new(5., 5., w - 10., h - 10.);
+        let mut rect = self.rect;
+        rect.x += 5.;
+        rect.y += 5.;
+        rect.w -= 10.;
+        rect.h -= 10.;
         let mesh = MeshBuilder::new()
             .rectangle(DrawMode::stroke(1.), rect, graphics::WHITE)
             .build(ctx)?;
@@ -72,8 +74,7 @@ impl<Q,R> EventHandler for Button<Q,R>
             ctx,
             &mesh,
             DrawParam::default()
-        )?;
-        graphics::present(ctx)
+        )
     }
 }
 

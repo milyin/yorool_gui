@@ -5,7 +5,7 @@ use ggez::event::{self, EventHandler};
 use ggez::graphics::{self, Color};
 use ggez::conf::{WindowSetup, WindowMode};
 
-use yorool_gui::gui::button;
+use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::grid::Grid;
 
@@ -40,7 +40,9 @@ impl GuiDemoState<'_> {
 
 impl EventHandler for GuiDemoState<'_> {
 
-    fn update(&mut self,_ctx: &mut Context) -> GameResult {
+    fn update(&mut self,ctx: &mut Context) -> GameResult {
+        let (w, h) = graphics::drawable_size(ctx);
+        self.grid.set_rect(0.,0.,w,h);
         Ok(())
     }
 

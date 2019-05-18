@@ -1,0 +1,10 @@
+[package]
+name = "yorool_gui"
+version = "0.1.0"
+authors = ["Michael Ilyin <milyin@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ggez = "0.5.0-rc.2"

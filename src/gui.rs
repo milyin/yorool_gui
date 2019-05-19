@@ -1,5 +1,5 @@
 pub mod button;
-pub mod grid;
+pub mod ribbon;
 
 use crate::request::Handler;
 use ggez::event::EventHandler;

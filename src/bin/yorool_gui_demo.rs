@@ -7,7 +7,7 @@ use ggez::conf::{WindowSetup, WindowMode};
 
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
-use yorool_gui::gui::grid::Grid;
+use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::request::Handler;
 
 #[allow(dead_code)]
@@ -25,7 +25,7 @@ enum GuiDemoR {
 }
 
 struct GuiDemoState<'a> {
-    grid: Grid<'a,GuiDemoQ,GuiDemoR>
+    grid: Ribbon<'a,GuiDemoQ,GuiDemoR>
 }
 
 impl GuiDemoState<'_> {
@@ -36,9 +36,9 @@ impl GuiDemoState<'_> {
             { if let GuiDemoQ::ButtonB(bq) = q { Ok(bq ) } else { Err(q) } }
         fn to_button_c(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
         { if let GuiDemoQ::ButtonC(bq) = q { Ok(bq ) } else { Err(q) } }
-        let mut grid = Grid::new()
+        let mut grid = Ribbon::new(false)
             .add_widget(Button::new(to_button_a, GuiDemoR::ButtonA))
-            .add_widget(Grid::new()
+            .add_widget(Ribbon::new(true)
                 .add_widget(Button::new(to_button_b, GuiDemoR::ButtonB))
                 .add_widget(Button::new(to_button_c, GuiDemoR::ButtonC))
             );

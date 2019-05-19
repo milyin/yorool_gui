@@ -90,8 +90,11 @@ impl<Q,R> EventHandler for Button<Q,R>
     }
 
     fn mouse_button_up_event(
-        &mut self, _ctx: &mut Context, _button: MouseButton, _x: f32, _y: f32,
+        &mut self, _ctx: &mut Context, _button: MouseButton, x: f32, y: f32,
     ) {
+        if self.touched && self.rect.contains([x,y]) {
+            self.checked = !self.checked;
+        }
         self.touched = false;
     }
 }

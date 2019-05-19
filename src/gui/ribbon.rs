@@ -1,7 +1,7 @@
 use crate::gui::Widget;
 use crate::request::Handler;
 use crate::gui::Layoutable;
-use ggez::event::EventHandler;
+use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::Rect;
 
@@ -61,6 +61,22 @@ impl<'a,Q,R> EventHandler for Ribbon<'a,Q,R> {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         self.for_all_res(|w| w.draw(ctx))
+    }
+
+    fn mouse_button_down_event(
+        &mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32,
+    ) {
+        self.for_all( |w|
+            w.mouse_button_down_event(ctx,button,x,y)
+        )
+    }
+
+    fn mouse_button_up_event(
+        &mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32,
+    ) {
+        self.for_all( |w|
+            w.mouse_button_up_event(ctx,button,x,y)
+        )
     }
 }
 

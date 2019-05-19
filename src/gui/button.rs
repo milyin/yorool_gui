@@ -1,5 +1,5 @@
 use crate::request::Handler;
-use ggez::event::EventHandler;
+use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
 use crate::gui::Layoutable;
@@ -20,7 +20,8 @@ type ToQ<Q> = fn(Q) -> Result<Query,Q>;
 type FromR<R> = fn(Response) -> R;
 
 pub struct Button<Q,R> {
-    pressed: bool,
+    checked: bool,
+    touched: bool,
     rect: Rect,
     fq: ToQ<Q>,
     fr: FromR<R>
@@ -31,7 +32,8 @@ impl<Q,R> Button<Q,R>
     pub fn new(fq: ToQ<Q>, fr: FromR<R>) -> Self
     {
         Self {
-            pressed: false,
+            checked: false,
+            touched: false,
             rect: Rect::zero(),
             fq, fr
         }
@@ -39,8 +41,8 @@ impl<Q,R> Button<Q,R>
 
     fn handle_query(&mut self, q: Query) -> Response {
         match q {
-            Query::GetState => Response::State(self.pressed),
-            Query::SetState(v) => { self.pressed = v; Response::Ok }
+            Query::GetState => Response::State(self.checked),
+            Query::SetState(v) => { self.checked = v; Response::Ok }
         }
     }
 }
@@ -63,12 +65,13 @@ impl<Q,R> EventHandler for Button<Q,R>
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut rect = self.rect;
-        rect.x += 5.;
-        rect.y += 5.;
-        rect.w -= 10.;
-        rect.h -= 10.;
+        let dsz = if self.touched { 10.} else { 5. };
+        rect.x += dsz;
+        rect.y += dsz;
+        rect.w -= dsz * 2.;
+        rect.h -= dsz * 2.;
         let mesh = MeshBuilder::new()
-            .rectangle(if self.pressed { DrawMode::fill() } else {DrawMode::stroke(1.)},
+            .rectangle(if self.checked { DrawMode::fill() } else { DrawMode::stroke(1.) },
                        rect, graphics::WHITE)
             .build(ctx)?;
         graphics::draw(
@@ -76,6 +79,20 @@ impl<Q,R> EventHandler for Button<Q,R>
             &mesh,
             DrawParam::default()
         )
+    }
+
+    fn mouse_button_down_event(
+        &mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32,
+    ) {
+        if button == MouseButton::Left && self.rect.contains([x,y]) {
+            self.touched = true;
+        }
+    }
+
+    fn mouse_button_up_event(
+        &mut self, _ctx: &mut Context, _button: MouseButton, _x: f32, _y: f32,
+    ) {
+        self.touched = false;
     }
 }
 

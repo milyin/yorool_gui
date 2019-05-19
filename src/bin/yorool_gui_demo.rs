@@ -1,7 +1,7 @@
 extern crate yorool_gui;
 
 use ggez::{Context, ContextBuilder, GameResult};
-use ggez::event::{self, EventHandler};
+use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color};
 use ggez::conf::{WindowSetup, WindowMode};
 
@@ -60,6 +60,18 @@ impl EventHandler for GuiDemoState<'_> {
         graphics::clear(ctx, Color::new(0.,0.,0.,0.));
         self.grid.draw(ctx)?;
         graphics::present(ctx)
+    }
+
+    fn mouse_button_down_event(
+        &mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32,
+    ) {
+        self.grid.mouse_button_down_event(ctx,button,x,y)
+    }
+
+    fn mouse_button_up_event(
+        &mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32,
+    ) {
+        self.grid.mouse_button_up_event(ctx,button,x,y)
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {

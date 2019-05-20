@@ -2,57 +2,64 @@ use crate::request::Handler;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
-use crate::gui::Layoutable;
+use crate::gui::{Layoutable, Widget};
 
 #[derive(Debug)]
-pub enum Query {
-    SetState(bool),
-    GetState
+pub enum Message {
+    ChangedState
 }
 
-#[derive(Debug)]
-pub enum Response {
-    Ok,
-    State(bool)
+#[derive(Debug, Clone)]
+pub enum Command {
+    SetState(bool)
 }
 
-type ToQ<Q> = fn(Q) -> Result<Query,Q>;
-type FromR<R> = fn(Response) -> R;
+pub trait IButton {
+    fn get_state(&self) -> bool;
+}
 
-pub struct Button<Q,R> {
+type ToMessage<MSG> = fn(Message) -> MSG;
+type FromCommand<CMD> = fn(&CMD) -> Option<Command>;
+
+pub struct Button<MSG,CMD> {
     checked: bool,
     touched: bool,
     rect: Rect,
-    fq: ToQ<Q>,
-    fr: FromR<R>
+    fm: ToMessage<MSG>,
+    fc: FromCommand<CMD>,
 }
 
-impl<Q,R> Button<Q,R>
+impl<MSG,CMD> IButton for Button<MSG,CMD> {
+    fn get_state(&self) -> bool { self.checked }
+}
+
+impl<MSG,CMD> Button<MSG,CMD>
 {
-    pub fn new(fq: ToQ<Q>, fr: FromR<R>) -> Self
+    pub fn new(fm: ToMessage<MSG>, fc: FromCommand<CMD>) -> Self
     {
         Self {
             checked: false,
             touched: false,
             rect: Rect::zero(),
-            fq, fr
+            fm, fc,
         }
     }
 
-    fn handle_query(&mut self, q: Query) -> Response {
-        match q {
-            Query::GetState => Response::State(self.checked),
-            Query::SetState(v) => { self.checked = v; Response::Ok }
+    fn handle_command(&mut self, cmd: Command) {
+        match cmd {
+            Command::SetState(v) => { self.checked = v; }
         }
     }
 }
 
-impl<Q,R> Handler<Q,R> for Button<Q,R>
+impl<MSG,CMD> Handler<MSG,CMD> for Button<MSG,CMD> where CMD: Clone
 {
-    fn handle(&mut self, req: Q) -> Result<R,Q> {
-        match (self.fq)(req) {
-            Ok(q) => Ok((self.fr)(self.handle_query(q))),
-            Err(q) => Err(q)
+    fn collect(&mut self) -> Vec<MSG> {Vec::new()}
+    fn handle(&mut self, cmds: &[CMD]) {
+        for cmd in cmds {
+            if let Some(cmd) = (self.fc)(cmd) {
+                self.handle_command(cmd)
+            }
         }
     }
 }
@@ -94,8 +101,10 @@ impl<Q,R> EventHandler for Button<Q,R>
     ) {
         if self.touched && self.rect.contains([x,y]) {
             self.checked = !self.checked;
+            self.touched = false;
+        } else {
+            self.touched = false;
         }
-        self.touched = false;
     }
 }
 

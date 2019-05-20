@@ -11,39 +11,40 @@ use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::request::Handler;
 
 #[allow(dead_code)]
-enum GuiDemoQ {
-    ButtonA(button::Query),
-    ButtonB(button::Query),
-    ButtonC(button::Query)
+enum GuiDemoMsg {
+    ButtonA(button::Message),
+    ButtonB(button::Message),
+    ButtonC(button::Message)
 }
 
 #[allow(dead_code)]
-enum GuiDemoR {
-    ButtonA(button::Response),
-    ButtonB(button::Response),
-    ButtonC(button::Response)
+#[derive(Clone)]
+enum GuiDemoCmd {
+    ButtonA(button::Command),
+    ButtonB(button::Command),
+    ButtonC(button::Command)
 }
 
 struct GuiDemoState<'a> {
-    grid: Ribbon<'a,GuiDemoQ,GuiDemoR>
+    grid: Ribbon<'a,GuiDemoMsg,GuiDemoCmd>
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        fn to_button_a(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
-            { if let GuiDemoQ::ButtonA(bq) = q { Ok(bq ) } else { Err(q) } }
-        fn to_button_b(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
-            { if let GuiDemoQ::ButtonB(bq) = q { Ok(bq ) } else { Err(q) } }
-        fn to_button_c(q: GuiDemoQ) -> Result<button::Query, GuiDemoQ>
-        { if let GuiDemoQ::ButtonC(bq) = q { Ok(bq ) } else { Err(q) } }
+        fn cmd_button_a(cmd: &GuiDemoCmd) -> Option<button::Command>
+            { if let GuiDemoCmd::ButtonA(cmd) = cmd { Some(cmd.clone()) } else { None } }
+        fn cmd_button_b(cmd: &GuiDemoCmd) -> Option<button::Command>
+            { if let GuiDemoCmd::ButtonB(cmd) = cmd { Some(cmd.clone()) } else { None } }
+        fn cmd_button_c(cmd: &GuiDemoCmd) -> Option<button::Command>
+            { if let GuiDemoCmd::ButtonC(cmd) = cmd { Some(cmd.clone()) } else { None } }
         let mut grid = Ribbon::new(false)
-            .add_widget(Button::new(to_button_a, GuiDemoR::ButtonA))
+            .add_widget(
+                Button::new(GuiDemoMsg::ButtonA, cmd_button_a)
+            )
             .add_widget(Ribbon::new(true)
-                .add_widget(Button::new(to_button_b, GuiDemoR::ButtonB))
-                .add_widget(Button::new(to_button_c, GuiDemoR::ButtonC))
+                .add_widget(Button::new(GuiDemoMsg::ButtonB, cmd_button_b))
+                .add_widget(Button::new(GuiDemoMsg::ButtonC, cmd_button_c))
             );
-        let _ = grid.handle(GuiDemoQ::ButtonA(button::Query::SetState(true)));
-        let _ = grid.handle(GuiDemoQ::ButtonC(button::Query::SetState(true)));
         Ok(Self{grid})
     }
 }

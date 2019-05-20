@@ -5,13 +5,13 @@ use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::Rect;
 
-pub struct Ribbon<'a,MSG,CMD> {
-    widgets: Vec<Box<Widget<MSG,CMD> + 'a>>,
+pub struct Ribbon<'a,MSG> {
+    widgets: Vec<Box<Widget<MSG> + 'a>>,
     rect: Rect,
     horizontal: bool
 }
 
-impl<'a,MSG,CMD> Ribbon<'a,MSG,CMD> where CMD: Clone {
+impl<'a,MSG> Ribbon<'a,MSG> {
     pub fn new(horizontal: bool) -> Self {
         Self {
             widgets: Vec::new(),
@@ -21,27 +21,27 @@ impl<'a,MSG,CMD> Ribbon<'a,MSG,CMD> where CMD: Clone {
     }
 
     pub fn add_widget<W>(mut self, widget: W) -> Self
-        where W: Widget<MSG,CMD> + 'a
+        where W: Widget<MSG> + 'a
     {
         self.widgets.push(Box::new(widget));
         self
     }
 
-    fn for_all_res<F: FnMut(&mut Box<Widget<MSG,CMD> + 'a>) -> GameResult>(&mut self, mut f: F) -> GameResult {
+    fn for_all_res<F: FnMut(&mut Box<Widget<MSG> + 'a>) -> GameResult>(&mut self, mut f: F) -> GameResult {
         for w in &mut self.widgets {
             f(w)?
         }
         Ok(())
     }
 
-    fn for_all<F: FnMut(&mut Box<Widget<MSG,CMD> + 'a>)>(&mut self, mut f: F) {
+    fn for_all<F: FnMut(&mut Box<Widget<MSG> + 'a>)>(&mut self, mut f: F) {
         for w in &mut self.widgets {
             f(w)
         }
     }
 }
 
-impl<MSG,CMD> Handler<MSG,CMD> for Ribbon<'_,MSG,CMD> where CMD: Clone {
+impl<MSG> Handler<MSG> for Ribbon<'_,MSG> {
 
     fn collect(&mut self) -> Vec<MSG> {
         let mut messages = Vec::new();
@@ -50,14 +50,17 @@ impl<MSG,CMD> Handler<MSG,CMD> for Ribbon<'_,MSG,CMD> where CMD: Clone {
         }
         messages
     }
-    fn handle(&mut self, cmds: &[CMD]) {
+    fn handle(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
+        let mut msgs = msgs;
         for w in &mut self.widgets {
-            w.handle(cmds)
+            msgs = w.handle(msgs);
+            if msgs.is_empty() { break }
         }
+        msgs
     }
 }
 
-impl<'a,MSG,CMD> EventHandler for Ribbon<'a,MSG,CMD> where CMD: Clone {
+impl<'a,MSG> EventHandler for Ribbon<'a,MSG> {
     fn update(&mut self,ctx: &mut Context) -> GameResult {
         self.for_all_res(|w| w.update(ctx))
     }
@@ -83,7 +86,7 @@ impl<'a,MSG,CMD> EventHandler for Ribbon<'a,MSG,CMD> where CMD: Clone {
     }
 }
 
-impl<MSG,CMD> Layoutable for Ribbon<'_,MSG,CMD> where CMD: Clone {
+impl<MSG> Layoutable for Ribbon<'_,MSG> {
     fn set_rect(&mut self, x:f32, y:f32, w:f32, h:f32) {
         self.rect.x = x;
         self.rect.y = y;

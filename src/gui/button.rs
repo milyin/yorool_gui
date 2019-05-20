@@ -2,14 +2,20 @@ use crate::request::Handler;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
-use crate::gui::{Layoutable, Widget};
+use crate::gui::{Layoutable};
 
 #[derive(Debug)]
 pub enum Message {
+    Notification(Notification),
+    Command(Command)
+}
+
+#[derive(Debug)]
+pub enum Notification {
     ChangedState
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Command {
     SetState(bool)
 }
@@ -18,30 +24,30 @@ pub trait IButton {
     fn get_state(&self) -> bool;
 }
 
-type ToMessage<MSG> = fn(Message) -> MSG;
-type FromCommand<CMD> = fn(&CMD) -> Option<Command>;
+type FPack<MSG> = fn(Message) -> MSG;
+type FUnpack<MSG> = fn(MSG) -> Result<Message,MSG>;
 
-pub struct Button<MSG,CMD> {
+pub struct Button<MSG> {
     checked: bool,
     touched: bool,
     rect: Rect,
-    fm: ToMessage<MSG>,
-    fc: FromCommand<CMD>,
+    fpack: FPack<MSG>,
+    funpack: FUnpack<MSG>,
 }
 
-impl<MSG,CMD> IButton for Button<MSG,CMD> {
+impl<MSG> IButton for Button<MSG> {
     fn get_state(&self) -> bool { self.checked }
 }
 
-impl<MSG,CMD> Button<MSG,CMD>
+impl<MSG> Button<MSG>
 {
-    pub fn new(fm: ToMessage<MSG>, fc: FromCommand<CMD>) -> Self
+    pub fn new(fpack: FPack<MSG>, funpack: FUnpack<MSG>) -> Self
     {
         Self {
             checked: false,
             touched: false,
             rect: Rect::zero(),
-            fm, fc,
+            fpack, funpack,
         }
     }
 
@@ -50,21 +56,26 @@ impl<MSG,CMD> Button<MSG,CMD>
             Command::SetState(v) => { self.checked = v; }
         }
     }
+
 }
 
-impl<MSG,CMD> Handler<MSG,CMD> for Button<MSG,CMD> where CMD: Clone
+impl<MSG> Handler<MSG> for Button<MSG>
 {
     fn collect(&mut self) -> Vec<MSG> {Vec::new()}
-    fn handle(&mut self, cmds: &[CMD]) {
-        for cmd in cmds {
-            if let Some(cmd) = (self.fc)(cmd) {
-                self.handle_command(cmd)
+    fn handle(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
+        let mut ret = Vec::new();
+        for msg in msgs {
+            match (self.funpack)(msg) {
+                Ok(Message::Command(cmd)) => self.handle_command(cmd),
+                Ok(Message::Notification(_)) => {},
+                Err(msg) => ret.push(msg)
             }
         }
+        ret
     }
 }
 
-impl<Q,R> EventHandler for Button<Q,R>
+impl<MSG> EventHandler for Button<MSG>
 {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         Ok(())
@@ -108,7 +119,7 @@ impl<Q,R> EventHandler for Button<Q,R>
     }
 }
 
-impl<Q,R> Layoutable for Button<Q,R> {
+impl<MSG> Layoutable for Button<MSG> {
     fn set_rect(&mut self, x:f32, y:f32, w:f32, h:f32) {
         self.rect.x = x;
         self.rect.y = y;

@@ -1,6 +1,6 @@
-pub trait Handler<MSG,CMD> where CMD: Clone {
+pub trait Handler<MSG> {
     fn collect(&mut self) -> Vec<MSG>;
-    fn handle(&mut self, cmds: &[CMD]);
+    fn handle(&mut self, cmds: Vec<MSG>) -> Vec<MSG>;
 }
 
 pub trait QueryInterface<QUERY, INTERFACE> {

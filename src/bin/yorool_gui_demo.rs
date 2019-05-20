@@ -8,7 +8,6 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::request::Handler;
 
 #[allow(dead_code)]
 enum GuiDemoMsg {
@@ -17,27 +16,19 @@ enum GuiDemoMsg {
     ButtonC(button::Message)
 }
 
-#[allow(dead_code)]
-#[derive(Clone)]
-enum GuiDemoCmd {
-    ButtonA(button::Command),
-    ButtonB(button::Command),
-    ButtonC(button::Command)
-}
-
 struct GuiDemoState<'a> {
-    grid: Ribbon<'a,GuiDemoMsg,GuiDemoCmd>
+    grid: Ribbon<'a,GuiDemoMsg>
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        fn cmd_button_a(cmd: &GuiDemoCmd) -> Option<button::Command>
-            { if let GuiDemoCmd::ButtonA(cmd) = cmd { Some(cmd.clone()) } else { None } }
-        fn cmd_button_b(cmd: &GuiDemoCmd) -> Option<button::Command>
-            { if let GuiDemoCmd::ButtonB(cmd) = cmd { Some(cmd.clone()) } else { None } }
-        fn cmd_button_c(cmd: &GuiDemoCmd) -> Option<button::Command>
-            { if let GuiDemoCmd::ButtonC(cmd) = cmd { Some(cmd.clone()) } else { None } }
-        let mut grid = Ribbon::new(false)
+        fn cmd_button_a(msg: GuiDemoMsg) -> Result<button::Message, GuiDemoMsg>
+            { if let GuiDemoMsg::ButtonA(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
+        fn cmd_button_b(msg: GuiDemoMsg) -> Result<button::Message, GuiDemoMsg>
+            { if let GuiDemoMsg::ButtonB(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
+        fn cmd_button_c(msg: GuiDemoMsg) -> Result<button::Message, GuiDemoMsg>
+             { if let GuiDemoMsg::ButtonC(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
+        let grid = Ribbon::new(false)
             .add_widget(
                 Button::new(GuiDemoMsg::ButtonA, cmd_button_a)
             )

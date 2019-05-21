@@ -1,4 +1,4 @@
-use crate::request::MessageHandler;
+use crate::request::{MessageHandler, IMessageHandler};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
@@ -11,8 +11,8 @@ pub enum Message {
 
 pub type Event = request::Event<Message,bool>;
 
-type FPack<MSG> = fn(Message) -> MSG;
-type FUnpack<MSG> = fn(MSG) -> Result<Message,MSG>;
+type FPack<MSG> = fn(Event) -> MSG;
+type FUnpack<MSG> = fn(MSG) -> Result<Event,MSG>;
 
 pub struct Button<MSG> {
     checked: bool,
@@ -21,7 +21,6 @@ pub struct Button<MSG> {
     rect: Rect,
     fpack: FPack<MSG>,
     funpack: FUnpack<MSG>,
-    queue: Vec<MSG>
 }
 
 impl<MSG> Button<MSG>
@@ -34,7 +33,6 @@ impl<MSG> Button<MSG>
             changed: false,
             rect: Rect::zero(),
             fpack, funpack,
-            queue: Vec::new()
         }
     }
 }
@@ -42,17 +40,18 @@ impl<MSG> Button<MSG>
 impl<MSG> MessageHandler<MSG> for Button<MSG> {
     type T = Message;
     type S = bool;
-    fn pack(&self, e: Event) -> Option<MSG> { Some((self.pack)(e)) }
-    fn unpack(&self, m: MSG) -> Result<Event, MSG> { (self.unpack)(m) }
+    fn pack(&self, e: Event) -> Option<MSG> { Some((self.fpack)(e)) }
+    fn unpack(&self, m: MSG) -> Result<Event, MSG> { (self.funpack)(m) }
     fn handle_custom(&mut self, m: Message) -> Option<Message> { None }
     fn get_state(&self) -> bool { self.checked }
     fn set_state(&mut self, s: bool) { self.checked = s }
     fn collect(&mut self) -> Vec<MSG> {
+        let mut ret = Vec::new();
         if self.changed {
             self.changed = false;
-            self.queue.push(Event::Changed)
+            ret.push((self.fpack)(request::Event::Changed))
         }
-
+        ret
     }
 }
 

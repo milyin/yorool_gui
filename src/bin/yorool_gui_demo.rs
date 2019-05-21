@@ -8,7 +8,7 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::request::{Handler, Event, IMessageHandler};
+use yorool_gui::request::IMessageHandler;
 
 #[allow(dead_code)]
 enum GuiDemoMsg {

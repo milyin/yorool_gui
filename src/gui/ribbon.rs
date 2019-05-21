@@ -49,7 +49,7 @@ impl<MSG> MessageHandler<MSG> for Ribbon<'_,MSG> {
     fn collect(&mut self) -> Vec<MSG> {
         let mut msgs = Vec::new();
         for w in &mut self.widgets {
-            msgs.append(w.collect(msgs));
+            msgs.append(&mut w.collect());
         }
         msgs
     }

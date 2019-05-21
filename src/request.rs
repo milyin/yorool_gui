@@ -46,11 +46,13 @@ pub trait IMessageHandler<MSG> {
     fn handle(&mut self, msgs: Vec<MSG> ) -> Vec<MSG>;
 }
 
-impl<W,MSG> IMessageHandler<MSG> for W where W: MessageHandler<MSG> {
+impl<W,MSG,T,S> IMessageHandler<MSG> for W where W: MessageHandler<MSG,T=T,S=S>, S: Default {
     fn collect(&mut self) -> Vec<MSG> {
-        self::<MessageHandler<MSG>>.collect()
+        let s : &mut W = self;
+        s.collect()
     }
     fn handle(&mut self, msgs: Vec<MSG> ) -> Vec<MSG> {
-        self::<MessageHandler<MSG>>.handle(msgs)
+        let s : &mut W = self;
+        s.handle(msgs)
     }
 }

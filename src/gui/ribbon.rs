@@ -1,9 +1,11 @@
 use crate::gui::Widget;
-use crate::request::Handler;
+use crate::request::{self, MessageHandler};
 use crate::gui::Layoutable;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::Rect;
+
+pub type Event = request::Event<(),()>;
 
 pub struct Ribbon<'a,MSG> {
     widgets: Vec<Box<Widget<MSG> + 'a>>,
@@ -41,14 +43,15 @@ impl<'a,MSG> Ribbon<'a,MSG> {
     }
 }
 
-impl<MSG> Handler<MSG> for Ribbon<'_,MSG> {
-
+impl<MSG> MessageHandler<MSG> for Ribbon<'_,MSG> {
+    type T = ();
+    type S = ();
     fn collect(&mut self) -> Vec<MSG> {
-        let mut messages = Vec::new();
+        let mut msgs = Vec::new();
         for w in &mut self.widgets {
-            messages.append(&mut w.collect());
+            msgs.append(w.collect(msgs));
         }
-        messages
+        msgs
     }
     fn handle(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
         let mut msgs = msgs;

@@ -1,28 +1,15 @@
-use crate::request::Handler;
+use crate::request::MessageHandler;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
 use crate::gui::{Layoutable};
+use crate::request;
 
-#[derive(Debug)]
 pub enum Message {
-    Notification(Notification),
-    Command(Command)
+    None
 }
 
-#[derive(Debug)]
-pub enum Notification {
-    ChangedState
-}
-
-#[derive(Debug)]
-pub enum Command {
-    SetState(bool)
-}
-
-pub trait IButton {
-    fn get_state(&self) -> bool;
-}
+pub type Event = request::Event<Message,bool>;
 
 type FPack<MSG> = fn(Message) -> MSG;
 type FUnpack<MSG> = fn(MSG) -> Result<Message,MSG>;
@@ -30,13 +17,11 @@ type FUnpack<MSG> = fn(MSG) -> Result<Message,MSG>;
 pub struct Button<MSG> {
     checked: bool,
     touched: bool,
+    changed: bool,
     rect: Rect,
     fpack: FPack<MSG>,
     funpack: FUnpack<MSG>,
-}
-
-impl<MSG> IButton for Button<MSG> {
-    fn get_state(&self) -> bool { self.checked }
+    queue: Vec<MSG>
 }
 
 impl<MSG> Button<MSG>
@@ -46,32 +31,28 @@ impl<MSG> Button<MSG>
         Self {
             checked: false,
             touched: false,
+            changed: false,
             rect: Rect::zero(),
             fpack, funpack,
+            queue: Vec::new()
         }
     }
-
-    fn handle_command(&mut self, cmd: Command) {
-        match cmd {
-            Command::SetState(v) => { self.checked = v; }
-        }
-    }
-
 }
 
-impl<MSG> Handler<MSG> for Button<MSG>
-{
-    fn collect(&mut self) -> Vec<MSG> {Vec::new()}
-    fn handle(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
-        let mut ret = Vec::new();
-        for msg in msgs {
-            match (self.funpack)(msg) {
-                Ok(Message::Command(cmd)) => self.handle_command(cmd),
-                Ok(Message::Notification(_)) => {},
-                Err(msg) => ret.push(msg)
-            }
+impl<MSG> MessageHandler<MSG> for Button<MSG> {
+    type T = Message;
+    type S = bool;
+    fn pack(&self, e: Event) -> Option<MSG> { Some((self.pack)(e)) }
+    fn unpack(&self, m: MSG) -> Result<Event, MSG> { (self.unpack)(m) }
+    fn handle_custom(&mut self, m: Message) -> Option<Message> { None }
+    fn get_state(&self) -> bool { self.checked }
+    fn set_state(&mut self, s: bool) { self.checked = s }
+    fn collect(&mut self) -> Vec<MSG> {
+        if self.changed {
+            self.changed = false;
+            self.queue.push(Event::Changed)
         }
-        ret
+
     }
 }
 
@@ -113,6 +94,7 @@ impl<MSG> EventHandler for Button<MSG>
         if self.touched && self.rect.contains([x,y]) {
             self.checked = !self.checked;
             self.touched = false;
+            self.changed = true;
         } else {
             self.touched = false;
         }

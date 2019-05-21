@@ -8,12 +8,13 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
+use yorool_gui::request::{Handler, Event, IMessageHandler};
 
 #[allow(dead_code)]
 enum GuiDemoMsg {
-    ButtonA(button::Message),
-    ButtonB(button::Message),
-    ButtonC(button::Message)
+    ButtonA(button::Event),
+    ButtonB(button::Event),
+    ButtonC(button::Event)
 }
 
 struct GuiDemoState<'a> {
@@ -22,11 +23,11 @@ struct GuiDemoState<'a> {
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        fn cmd_button_a(msg: GuiDemoMsg) -> Result<button::Message, GuiDemoMsg>
+        fn cmd_button_a(msg: GuiDemoMsg) -> Result<button::Event, GuiDemoMsg>
             { if let GuiDemoMsg::ButtonA(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
-        fn cmd_button_b(msg: GuiDemoMsg) -> Result<button::Message, GuiDemoMsg>
+        fn cmd_button_b(msg: GuiDemoMsg) -> Result<button::Event, GuiDemoMsg>
             { if let GuiDemoMsg::ButtonB(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
-        fn cmd_button_c(msg: GuiDemoMsg) -> Result<button::Message, GuiDemoMsg>
+        fn cmd_button_c(msg: GuiDemoMsg) -> Result<button::Event, GuiDemoMsg>
              { if let GuiDemoMsg::ButtonC(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
         let grid = Ribbon::new(false)
             .add_widget(
@@ -43,6 +44,9 @@ impl GuiDemoState<'_> {
 impl EventHandler for GuiDemoState<'_> {
 
     fn update(&mut self,ctx: &mut Context) -> GameResult {
+        let msgs = self.grid.collect();
+        // TODO: process messages
+        self.grid.handle(msgs);
         let (w, h) = graphics::drawable_size(ctx);
         self.grid.set_rect(0.,0.,w,h);
         Ok(())

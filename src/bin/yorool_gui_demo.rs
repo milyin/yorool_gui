@@ -8,9 +8,9 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::request::{IMessageHandler, Unpack};
+use yorool_gui::request::{IMessageHandler, Unpack, MessageProcessor, Event};
 
-#[allow(dead_code)]
+#[derive(Debug)]
 enum GuiDemoMsg {
     ButtonA(button::Event),
     ButtonB(button::Event),
@@ -30,7 +30,9 @@ impl Unpack<button::Event> for GuiDemoMsg {
 }
 
 struct GuiDemoState<'a> {
-    grid: Ribbon<'a,GuiDemoMsg>
+    grid: Ribbon<'a,GuiDemoMsg>,
+    grid_proc_query: MessageProcessor<'a,GuiDemoMsg>,
+    grid_proc_execute: MessageProcessor<'a,GuiDemoMsg>
 }
 
 impl GuiDemoState<'_> {
@@ -43,16 +45,35 @@ impl GuiDemoState<'_> {
                 .add_widget(Button::new(GuiDemoMsg::ButtonB))
                 .add_widget(Button::new(GuiDemoMsg::ButtonC))
             );
-        Ok(Self{grid})
+        let grid_proc_query = MessageProcessor::new()
+            .add_msg_proc(|msg| {
+                match msg {
+                   GuiDemoMsg::ButtonA(Event::Changed) => Ok(vec![GuiDemoMsg::ButtonB(Event::QueryState)]),
+                   m => Err(m)
+                }
+            });
+        let grid_proc_execute = MessageProcessor::new()
+            .add_msg_proc(|msg| {
+                match msg {
+                   GuiDemoMsg::ButtonB(Event::State(b)) => Ok(vec![GuiDemoMsg::ButtonB(Event::SetState(!b))]),
+                   m => Err(m)
+                }
+            });
+         Ok(Self{grid, grid_proc_query, grid_proc_execute})
     }
 }
 
 impl EventHandler for GuiDemoState<'_> {
 
     fn update(&mut self,ctx: &mut Context) -> GameResult {
-        let msgs = self.grid.collect();
-        // TODO: process messages
-        self.grid.handle(msgs);
+        let notifications = self.grid.collect();
+        if !notifications.is_empty() {
+            let queries = self.grid_proc_query.process(notifications);
+            dbg!(&queries);
+            let commands = self.grid_proc_execute.process(self.grid.handle(queries));
+            dbg!(&commands);
+            let _ = self.grid.handle(commands);
+        }
         let (w, h) = graphics::drawable_size(ctx);
         self.grid.set_rect(0.,0.,w,h);
         Ok(())

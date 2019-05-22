@@ -38,7 +38,7 @@ impl<MSG> MessageHandler<MSG> for Button<MSG> where MSG: Unpack<Event> {
     fn handle_custom(&mut self, _m: ()) -> Option<()> { None }
     fn get_state(&self) -> bool { self.checked }
     fn set_state(&mut self, s: bool) { self.checked = s }
-    fn collect(&mut self) -> Vec<MSG> {
+    fn collect_impl(&mut self) -> Vec<MSG> {
         let mut ret = Vec::new();
         if self.changed {
             self.changed = false;

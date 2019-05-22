@@ -46,14 +46,14 @@ impl<'a,MSG> Ribbon<'a,MSG> {
 impl<MSG> MessageHandler<MSG> for Ribbon<'_,MSG> {
     type T = ();
     type S = ();
-    fn collect(&mut self) -> Vec<MSG> {
+    fn collect_impl(&mut self) -> Vec<MSG> {
         let mut msgs = Vec::new();
         for w in &mut self.widgets {
             msgs.append(&mut w.collect());
         }
         msgs
     }
-    fn handle(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
+    fn handle_impl(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
         let mut msgs = msgs;
         for w in &mut self.widgets {
             msgs = w.handle(msgs);

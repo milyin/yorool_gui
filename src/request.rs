@@ -2,6 +2,7 @@ pub trait Unpack<E:Default> {
     fn unpack(self, f: fn(E) -> Self) -> Result<E,Self> where Self: Sized;
 }
 
+#[derive(Debug)]
 pub enum Event<T,S> {
     None,
     Changed,
@@ -23,8 +24,8 @@ pub trait MessageHandler<MSG> {
     fn handle_custom(&mut self, _e: Self::T) -> Option<Self::T> { None }
     fn get_state(&self) -> Self::S { Self::S::default() }
     fn set_state(&mut self, _s: Self::S) {}
-    fn collect(&mut self) -> Vec<MSG> { Vec::new() }
-    fn handle(&mut self, input: Vec<MSG>) -> Vec<MSG> {
+    fn collect_impl(&mut self) -> Vec<MSG> { Vec::new() }
+    fn handle_impl(&mut self, input: Vec<MSG>) -> Vec<MSG> {
         let mut output = Vec::new();
           for msg in input {
             match self.unpack(msg) {
@@ -57,10 +58,44 @@ pub trait IMessageHandler<MSG> {
 impl<W,MSG,T,S> IMessageHandler<MSG> for W where W: MessageHandler<MSG,T=T,S=S>, S: Default {
     fn collect(&mut self) -> Vec<MSG> {
         let s : &mut W = self;
-        s.collect()
+        s.collect_impl()
     }
     fn handle(&mut self, msgs: Vec<MSG> ) -> Vec<MSG> {
         let s : &mut W = self;
-        s.handle(msgs)
+        s.handle_impl(msgs)
+    }
+}
+
+pub struct MessageProcessor<'a, MSG> {
+    msgs_proc: Box<Fn(Vec<MSG>) -> Vec<MSG> + 'a>,
+    msg_procs: Vec<Box<Fn(MSG) -> Result<Vec<MSG>, MSG> + 'a>>
+}
+
+impl <'a,MSG> MessageProcessor<'a,MSG> {
+    pub fn new() -> Self {
+        Self {
+            msgs_proc: Box::new(|q| q ),
+            msg_procs: Vec::new()
+        }
+    }
+    pub fn set_msgs_proc<F: Fn(Vec<MSG>) -> Vec<MSG> + 'a>(mut self, f:F) -> Self {
+        self.msgs_proc = Box::new(f);
+        self
+    }
+    pub fn add_msg_proc<F:Fn(MSG) -> Result<Vec<MSG>, MSG> + 'a>(mut self, f:F) -> Self {
+        self.msg_procs.push(Box::new(f));
+        self
+    }
+    pub fn process(&self, msgs: Vec<MSG>) -> Vec<MSG> {
+        let mut ret = Vec::new();
+        for mut msg in msgs {
+            for proc in &self.msg_procs {
+                match proc(msg) {
+                    Ok(mut r) => { ret.append(&mut r); break; }
+                    Err(m) => msg = m
+                }
+            }
+        }
+        ret
     }
 }

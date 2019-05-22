@@ -8,7 +8,7 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::request::{IMessageHandler, Unpack, MessageProcessor, Event};
+use yorool_gui::request::{IMessageHandler, Unpack, MessageProcessor, Event, is_changed, get_state};
 
 #[derive(Debug)]
 enum GuiDemoMsg {
@@ -17,6 +17,9 @@ enum GuiDemoMsg {
     ButtonC(button::Event)
 }
 
+//
+// TODO: autogenerate it with macro when stabilized
+//
 impl Unpack<button::Event> for GuiDemoMsg {
     fn peek(&self, f: fn(button::Event) -> Self) -> Option<&button::Event> {
         let test = f(button::Event::default());
@@ -37,30 +40,6 @@ impl Unpack<button::Event> for GuiDemoMsg {
             (m,_) => Err(m)
         }
     }
-}
-
-fn is_changed<T,S, MSG: Unpack<Event<T,S>>>(id: fn(Event<T,S>) -> MSG, msgs: &Vec<MSG>) -> bool {
-    for msg in msgs {
-        if let Some(ref e) = msg.peek(id) {
-            match e {
-                Event::Changed => return true,
-                _ => {}
-            }
-        }
-    }
-    false
-}
-
-fn get_state<'a,T:'a,S,MSG: Unpack<Event<T,S>>>(id: fn(Event<T,S>) -> MSG, msgs: &'a Vec<MSG>) -> Option<&'a S> {
-    for msg in msgs {
-        if let Some(ref e) = msg.peek(id) {
-            match e {
-                Event::State(ref s) => return Some(s),
-                _ => {}
-            }
-        }
-    }
-    None
 }
 
 fn radio_group_query() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
@@ -119,7 +98,7 @@ impl GuiDemoState<'_> {
             .add_multiple(radio_group_query());
         let grid_proc_execute = MessageProcessor::new()
             .add_multiple(radio_group_execute());
-         Ok(Self{grid, grid_proc_query, grid_proc_execute})
+        Ok(Self{grid, grid_proc_query, grid_proc_execute})
     }
 }
 

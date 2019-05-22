@@ -111,3 +111,28 @@ impl <'a,MSG> MessageProcessor<'a,MSG> {
         ret
     }
 }
+
+pub fn is_changed<T,S, MSG: Unpack<Event<T,S>>>(id: fn(Event<T,S>) -> MSG, msgs: &Vec<MSG>) -> bool {
+    for msg in msgs {
+        if let Some(ref e) = msg.peek(id) {
+            match e {
+                Event::Changed => return true,
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
+pub fn get_state<'a,T:'a,S,MSG: Unpack<Event<T,S>>>(id: fn(Event<T,S>) -> MSG, msgs: &'a Vec<MSG>) -> Option<&'a S> {
+    for msg in msgs {
+        if let Some(ref e) = msg.peek(id) {
+            match e {
+                Event::State(ref s) => return Some(s),
+                _ => {}
+            }
+        }
+    }
+    None
+}
+

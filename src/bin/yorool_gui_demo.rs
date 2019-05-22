@@ -18,7 +18,17 @@ enum GuiDemoMsg {
 }
 
 impl Unpack<button::Event> for GuiDemoMsg {
-    fn unpack(self, f: fn(button::Event) -> GuiDemoMsg ) -> Result<button::Event,GuiDemoMsg> {
+    fn peek(&self, f: fn(button::Event) -> Self) -> Option<&button::Event> {
+        let test = f(button::Event::default());
+        match (self, test) {
+            (GuiDemoMsg::ButtonA(ref e), GuiDemoMsg::ButtonA(_)) => Some(&e),
+            (GuiDemoMsg::ButtonB(ref e), GuiDemoMsg::ButtonB(_)) => Some(&e),
+            (GuiDemoMsg::ButtonC(ref e), GuiDemoMsg::ButtonC(_)) => Some(&e),
+            _ => None
+        }
+    }
+
+    fn unpack(self, f: fn(button::Event) -> Self ) -> Result<button::Event,Self> {
         let test = f(button::Event::default());
         match (self, test) {
             (GuiDemoMsg::ButtonA(e), GuiDemoMsg::ButtonA(_)) => Ok(e),
@@ -26,6 +36,66 @@ impl Unpack<button::Event> for GuiDemoMsg {
             (GuiDemoMsg::ButtonC(e), GuiDemoMsg::ButtonC(_)) => Ok(e),
             (m,_) => Err(m)
         }
+    }
+}
+
+fn is_changed<T,S, MSG: Unpack<Event<T,S>>>(id: fn(Event<T,S>) -> MSG, msgs: &Vec<MSG>) -> bool {
+    for msg in msgs {
+        if let Some(ref e) = msg.peek(id) {
+            match e {
+                Event::Changed => return true,
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
+fn get_state<'a,T:'a,S,MSG: Unpack<Event<T,S>>>(id: fn(Event<T,S>) -> MSG, msgs: &'a Vec<MSG>) -> Option<&'a S> {
+    for msg in msgs {
+        if let Some(ref e) = msg.peek(id) {
+            match e {
+                Event::State(ref s) => return Some(s),
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+fn radio_group_query() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
+    |mut msgs| {
+        if is_changed(GuiDemoMsg::ButtonA, &msgs) ||
+           is_changed(GuiDemoMsg::ButtonB, &msgs) ||
+           is_changed(GuiDemoMsg::ButtonC, &msgs)
+        {
+            msgs.push(GuiDemoMsg::ButtonA(Event::QueryState));
+            msgs.push(GuiDemoMsg::ButtonB(Event::QueryState));
+            msgs.push(GuiDemoMsg::ButtonC(Event::QueryState));
+        }
+        msgs
+    }
+}
+
+fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
+    |mut msgs| {
+        if let (Some(a), Some(b), Some(c)) = (
+            get_state(GuiDemoMsg::ButtonA, &msgs),
+            get_state(GuiDemoMsg::ButtonB, &msgs),
+            get_state(GuiDemoMsg::ButtonC, &msgs))
+        {
+            if *a && is_changed(GuiDemoMsg::ButtonA, &msgs) {
+                msgs.push(GuiDemoMsg::ButtonB(Event::SetState(false)));
+                msgs.push(GuiDemoMsg::ButtonC(Event::SetState(false)));
+            } else if *b && is_changed(GuiDemoMsg::ButtonB, &msgs) {
+                msgs.push(GuiDemoMsg::ButtonA(Event::SetState(false)));
+                msgs.push(GuiDemoMsg::ButtonC(Event::SetState(false)));
+            } else if *c && is_changed(GuiDemoMsg::ButtonC, &msgs) {
+                msgs.push(GuiDemoMsg::ButtonA(Event::SetState(false)));
+                msgs.push(GuiDemoMsg::ButtonB(Event::SetState(false)));
+            }
+        }
+        msgs
     }
 }
 
@@ -46,19 +116,9 @@ impl GuiDemoState<'_> {
                 .add_widget(Button::new(GuiDemoMsg::ButtonC))
             );
         let grid_proc_query = MessageProcessor::new()
-            .add_msg_proc(|msg| {
-                match msg {
-                   GuiDemoMsg::ButtonA(Event::Changed) => Ok(vec![GuiDemoMsg::ButtonB(Event::QueryState)]),
-                   m => Err(m)
-                }
-            });
+            .add_multiple(radio_group_query());
         let grid_proc_execute = MessageProcessor::new()
-            .add_msg_proc(|msg| {
-                match msg {
-                   GuiDemoMsg::ButtonB(Event::State(b)) => Ok(vec![GuiDemoMsg::ButtonB(Event::SetState(!b))]),
-                   m => Err(m)
-                }
-            });
+            .add_multiple(radio_group_execute());
          Ok(Self{grid, grid_proc_query, grid_proc_execute})
     }
 }
@@ -68,11 +128,14 @@ impl EventHandler for GuiDemoState<'_> {
     fn update(&mut self,ctx: &mut Context) -> GameResult {
         let notifications = self.grid.collect();
         if !notifications.is_empty() {
+            dbg!(&notifications);
             let queries = self.grid_proc_query.process(notifications);
             dbg!(&queries);
-            let commands = self.grid_proc_execute.process(self.grid.handle(queries));
+            let responses = self.grid.handle(queries);
+            dbg!(&responses);
+            let commands = self.grid_proc_execute.process(responses);
             dbg!(&commands);
-            let _ = self.grid.handle(commands);
+            let _ = dbg!(self.grid.handle(commands));
         }
         let (w, h) = graphics::drawable_size(ctx);
         self.grid.set_rect(0.,0.,w,h);

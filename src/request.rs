@@ -1,5 +1,6 @@
 pub trait Unpack<E:Default> {
     fn unpack(self, f: fn(E) -> Self) -> Result<E,Self> where Self: Sized;
+    fn peek(&self, f: fn(E) -> Self) -> Option<&E>;
 }
 
 #[derive(Debug)]
@@ -42,8 +43,12 @@ pub trait MessageHandler<MSG> {
                         }
                     }
                 }
+                Ok(e) => {
+                    if let Some(m) = self.pack(e) {
+                        output.push(m)
+                    }
+                },
                 Err(msg) => output.push(msg),
-                _ => {}
             }
         }
         output
@@ -67,33 +72,40 @@ impl<W,MSG,T,S> IMessageHandler<MSG> for W where W: MessageHandler<MSG,T=T,S=S>,
 }
 
 pub struct MessageProcessor<'a, MSG> {
-    msgs_proc: Box<Fn(Vec<MSG>) -> Vec<MSG> + 'a>,
-    msg_procs: Vec<Box<Fn(MSG) -> Result<Vec<MSG>, MSG> + 'a>>
+    multiples: Vec<Box<Fn(Vec<MSG>) -> Vec<MSG> + 'a>>,
+    singles: Vec<Box<Fn(MSG) -> Result<Vec<MSG>, MSG> + 'a>>
 }
 
 impl <'a,MSG> MessageProcessor<'a,MSG> {
     pub fn new() -> Self {
         Self {
-            msgs_proc: Box::new(|q| q ),
-            msg_procs: Vec::new()
+            multiples: Vec::new(),
+            singles: Vec::new()
         }
     }
-    pub fn set_msgs_proc<F: Fn(Vec<MSG>) -> Vec<MSG> + 'a>(mut self, f:F) -> Self {
-        self.msgs_proc = Box::new(f);
+    pub fn add_multiple<F: Fn(Vec<MSG>) -> Vec<MSG> + 'a>(mut self, f:F) -> Self {
+        self.multiples.push(Box::new(f));
         self
     }
-    pub fn add_msg_proc<F:Fn(MSG) -> Result<Vec<MSG>, MSG> + 'a>(mut self, f:F) -> Self {
-        self.msg_procs.push(Box::new(f));
+    pub fn add_single<F:Fn(MSG) -> Result<Vec<MSG>, MSG> + 'a>(mut self, f:F) -> Self {
+        self.singles.push(Box::new(f));
         self
     }
-    pub fn process(&self, msgs: Vec<MSG>) -> Vec<MSG> {
+    pub fn process(&self, mut msgs: Vec<MSG>) -> Vec<MSG> {
+        for proc in &self.multiples {
+           msgs = proc(msgs)
+        }
         let mut ret = Vec::new();
-        for mut msg in msgs {
-            for proc in &self.msg_procs {
-                match proc(msg) {
-                    Ok(mut r) => { ret.append(&mut r); break; }
-                    Err(m) => msg = m
+        for msg in msgs {
+            let mut keep_msg = Some(msg);
+            for proc in &self.singles {
+                match proc(keep_msg.unwrap()) {
+                    Ok(mut r) => { ret.append(&mut r); keep_msg = None; break; }
+                    Err(m) => keep_msg = Some(m)
                 }
+            }
+            if let Some(msg) = keep_msg {
+                ret.push(msg)
             }
         }
         ret

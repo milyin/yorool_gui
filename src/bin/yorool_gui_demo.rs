@@ -8,7 +8,7 @@ use ggez::conf::{WindowSetup, WindowMode};
 use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::request::IMessageHandler;
+use yorool_gui::request::{IMessageHandler, Unpack};
 
 #[allow(dead_code)]
 enum GuiDemoMsg {
@@ -17,25 +17,31 @@ enum GuiDemoMsg {
     ButtonC(button::Event)
 }
 
+impl Unpack<button::Event> for GuiDemoMsg {
+    fn unpack(self, f: fn(button::Event) -> GuiDemoMsg ) -> Result<button::Event,GuiDemoMsg> {
+        let test = f(button::Event::default());
+        match (self, test) {
+            (GuiDemoMsg::ButtonA(e), GuiDemoMsg::ButtonA(_)) => Ok(e),
+            (GuiDemoMsg::ButtonB(e), GuiDemoMsg::ButtonB(_)) => Ok(e),
+            (GuiDemoMsg::ButtonC(e), GuiDemoMsg::ButtonC(_)) => Ok(e),
+            (m,_) => Err(m)
+        }
+    }
+}
+
 struct GuiDemoState<'a> {
     grid: Ribbon<'a,GuiDemoMsg>
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        fn cmd_button_a(msg: GuiDemoMsg) -> Result<button::Event, GuiDemoMsg>
-            { if let GuiDemoMsg::ButtonA(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
-        fn cmd_button_b(msg: GuiDemoMsg) -> Result<button::Event, GuiDemoMsg>
-            { if let GuiDemoMsg::ButtonB(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
-        fn cmd_button_c(msg: GuiDemoMsg) -> Result<button::Event, GuiDemoMsg>
-             { if let GuiDemoMsg::ButtonC(wmsg) = msg { Ok(wmsg) } else { Err(msg) } }
         let grid = Ribbon::new(false)
             .add_widget(
-                Button::new(GuiDemoMsg::ButtonA, cmd_button_a)
+                Button::new(GuiDemoMsg::ButtonA)
             )
             .add_widget(Ribbon::new(true)
-                .add_widget(Button::new(GuiDemoMsg::ButtonB, cmd_button_b))
-                .add_widget(Button::new(GuiDemoMsg::ButtonC, cmd_button_c))
+                .add_widget(Button::new(GuiDemoMsg::ButtonB))
+                .add_widget(Button::new(GuiDemoMsg::ButtonC))
             );
         Ok(Self{grid})
     }

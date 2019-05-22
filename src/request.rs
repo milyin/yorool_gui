@@ -1,3 +1,7 @@
+pub trait Unpack<E:Default> {
+    fn unpack(self, f: fn(E) -> Self) -> Result<E,Self> where Self: Sized;
+}
+
 pub enum Event<T,S> {
     None,
     Changed,
@@ -7,14 +11,18 @@ pub enum Event<T,S> {
     Custom(T)
 }
 
+impl<T,S> Default for Event<T,S> {
+    fn default() -> Self { Event::None }
+}
+
 pub trait MessageHandler<MSG> {
     type T;
     type S : Default;
-    fn pack(&self, e: Event<Self::T,Self::S>) -> Option<MSG> { None }
+    fn pack(&self, _e: Event<Self::T,Self::S>) -> Option<MSG> { None }
     fn unpack(&self, m: MSG) -> Result<Event<Self::T,Self::S>, MSG> { Err(m) }
-    fn handle_custom(&mut self, e: Self::T) -> Option<Self::T> { None }
+    fn handle_custom(&mut self, _e: Self::T) -> Option<Self::T> { None }
     fn get_state(&self) -> Self::S { Self::S::default() }
-    fn set_state(&mut self, s: Self::S) {}
+    fn set_state(&mut self, _s: Self::S) {}
     fn collect(&mut self) -> Vec<MSG> { Vec::new() }
     fn handle(&mut self, input: Vec<MSG>) -> Vec<MSG> {
         let mut output = Vec::new();

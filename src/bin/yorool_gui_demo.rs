@@ -9,6 +9,7 @@ use yorool_gui::gui::{button, Layoutable};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::request::{IMessageHandler, Unpack, MessageProcessor, Event, is_changed, get_state};
+use yorool_gui::gui::panel::Panel;
 
 #[derive(Debug)]
 enum GuiDemoMsg {
@@ -79,21 +80,23 @@ fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
 }
 
 struct GuiDemoState<'a> {
-    grid: Ribbon<'a,GuiDemoMsg>,
+    grid: Panel<GuiDemoMsg,Ribbon<'a,GuiDemoMsg>>,
     grid_proc_query: MessageProcessor<'a,GuiDemoMsg>,
     grid_proc_execute: MessageProcessor<'a,GuiDemoMsg>
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        let grid = Ribbon::new(false)
+        let grid = Panel::new(
+            Ribbon::new(false)
             .add_widget(
                 Button::new(GuiDemoMsg::ButtonA)
             )
             .add_widget(Ribbon::new(true)
                 .add_widget(Button::new(GuiDemoMsg::ButtonB))
                 .add_widget(Button::new(GuiDemoMsg::ButtonC))
-            );
+            )
+        );
         let grid_proc_query = MessageProcessor::new()
             .add_multiple(radio_group_query());
         let grid_proc_execute = MessageProcessor::new()

@@ -1,5 +1,6 @@
 pub mod button;
 pub mod ribbon;
+pub mod panel;
 
 use crate::request::IMessageHandler;
 use ggez::event::EventHandler;
@@ -10,3 +11,4 @@ pub trait Layoutable {
 
 pub trait Widget<MSG> : IMessageHandler<MSG> + EventHandler + Layoutable {}
 impl<W,MSG> Widget<MSG> for W where W: IMessageHandler<MSG> + EventHandler + Layoutable {}
+

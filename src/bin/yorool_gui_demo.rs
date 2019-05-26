@@ -9,11 +9,11 @@ use ggez::{Context, ContextBuilder, GameResult};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::gui::{button, Layoutable};
-use yorool_gui::request::Unpack;
+use yorool_gui::gui::{button, Layoutable, Widget};
+use yorool_gui::request::{message_loop, Unpack};
 
 #[derive(Debug)]
-enum GuiDemoMsg {
+enum GridMsg {
     ButtonA(button::Event),
     ButtonB(button::Event),
     ButtonC(button::Event),
@@ -22,13 +22,13 @@ enum GuiDemoMsg {
 //
 // TODO: autogenerate it with macro when stabilized
 //
-impl Unpack<button::Event> for GuiDemoMsg {
+impl Unpack<button::Event> for GridMsg {
     fn peek(&self, f: fn(button::Event) -> Self) -> Option<&button::Event> {
         let test = f(button::Event::default());
         match (self, test) {
-            (GuiDemoMsg::ButtonA(ref e), GuiDemoMsg::ButtonA(_)) => Some(&e),
-            (GuiDemoMsg::ButtonB(ref e), GuiDemoMsg::ButtonB(_)) => Some(&e),
-            (GuiDemoMsg::ButtonC(ref e), GuiDemoMsg::ButtonC(_)) => Some(&e),
+            (GridMsg::ButtonA(ref e), GridMsg::ButtonA(_)) => Some(&e),
+            (GridMsg::ButtonB(ref e), GridMsg::ButtonB(_)) => Some(&e),
+            (GridMsg::ButtonC(ref e), GridMsg::ButtonC(_)) => Some(&e),
             _ => None,
         }
     }
@@ -36,9 +36,9 @@ impl Unpack<button::Event> for GuiDemoMsg {
     fn unpack(self, f: fn(button::Event) -> Self) -> Result<button::Event, Self> {
         let test = f(button::Event::default());
         match (self, test) {
-            (GuiDemoMsg::ButtonA(e), GuiDemoMsg::ButtonA(_)) => Ok(e),
-            (GuiDemoMsg::ButtonB(e), GuiDemoMsg::ButtonB(_)) => Ok(e),
-            (GuiDemoMsg::ButtonC(e), GuiDemoMsg::ButtonC(_)) => Ok(e),
+            (GridMsg::ButtonA(e), GridMsg::ButtonA(_)) => Ok(e),
+            (GridMsg::ButtonB(e), GridMsg::ButtonB(_)) => Ok(e),
+            (GridMsg::ButtonC(e), GridMsg::ButtonC(_)) => Ok(e),
             (m, _) => Err(m),
         }
     }
@@ -81,18 +81,18 @@ fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
 }
 */
 struct GuiDemoState<'a> {
-    grid: Panel<'a, GuiDemoMsg>,
+    grid: Panel<'a, (), GridMsg>,
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
         let grid = Panel::new(
             Ribbon::new(false)
-                .add_widget(Button::new(GuiDemoMsg::ButtonA))
+                .add_widget(Button::new(GridMsg::ButtonA))
                 .add_widget(
                     Ribbon::new(true)
-                        .add_widget(Button::new(GuiDemoMsg::ButtonB))
-                        .add_widget(Button::new(GuiDemoMsg::ButtonC)),
+                        .add_widget(Button::new(GridMsg::ButtonB))
+                        .add_widget(Button::new(GridMsg::ButtonC)),
                 ),
         );
         Ok(Self { grid })
@@ -101,6 +101,8 @@ impl GuiDemoState<'_> {
 
 impl EventHandler for GuiDemoState<'_> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        let pool = Vec::new();
+        message_loop(self.grid.as_message_handler(), pool);
         let (w, h) = graphics::drawable_size(ctx);
         self.grid.set_rect(0., 0., w, h);
         Ok(())

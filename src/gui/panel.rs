@@ -1,27 +1,32 @@
 use crate::gui::{Layoutable, Widget};
-use crate::request::{MessageHandler, MessagePool};
+use crate::request::{message_loop, MessageHandler, MessagePoolIn, MessagePoolOut};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 
 pub type Event = ();
 
-pub struct Panel<'a, MSG> {
-    widget: Box<dyn Widget<MSG> + 'a>,
+pub struct Panel<'a, EXTMSG, INTMSG> {
+    widget: Box<dyn Widget<INTMSG> + 'a>,
+    phantom: std::marker::PhantomData<EXTMSG>,
 }
 
-impl<'a, MSG> Panel<'a, MSG> {
-    pub fn new<W: Widget<MSG> + 'a>(w: W) -> Self {
-        Self { widget: box w }
+impl<'a, EXTMSG, INTMSG> Panel<'a, EXTMSG, INTMSG> {
+    pub fn new<W: Widget<INTMSG> + 'a>(w: W) -> Self {
+        Self {
+            widget: box w,
+            phantom: std::marker::PhantomData,
+        }
     }
 }
 
-impl<MSG> MessageHandler<MSG> for Panel<'_, MSG> {
-    fn handle(&mut self, pool: &mut dyn MessagePool<MSG>) {
-        self.widget.handle(pool)
+impl<'a, EXTMSG, INTMSG> MessageHandler<EXTMSG> for Panel<'a, EXTMSG, INTMSG> {
+    fn handle(&mut self, _src: &mut MessagePoolIn<EXTMSG>, _dst: &mut MessagePoolOut<EXTMSG>) {
+        let intpool = Vec::new();
+        message_loop(self.widget.as_message_handler(), intpool);
     }
 }
 
-impl<MSG> EventHandler for Panel<'_, MSG> {
+impl<EXTMSG, INTMSG> EventHandler for Panel<'_, EXTMSG, INTMSG> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.widget.update(ctx)
     }
@@ -39,7 +44,7 @@ impl<MSG> EventHandler for Panel<'_, MSG> {
     }
 }
 
-impl<MSG> Layoutable for Panel<'_, MSG> {
+impl<EXTMSG, INTMSG> Layoutable for Panel<'_, EXTMSG, INTMSG> {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.widget.set_rect(x, y, w, h)
     }

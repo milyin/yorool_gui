@@ -1,34 +1,36 @@
-use crate::gui::Widget;
-use crate::request::{MessageHandler, MessagePool};
 use crate::gui::Layoutable;
+use crate::gui::Widget;
+use crate::request::{MessageHandler, MessagePoolIn, MessagePoolOut};
 use ggez::event::{EventHandler, MouseButton};
-use ggez::{Context, GameResult};
 use ggez::graphics::Rect;
+use ggez::{Context, GameResult};
 
 pub type Event = ();
 
-pub struct Ribbon<'a,MSG> {
+pub struct Ribbon<'a, MSG> {
     widgets: Vec<Box<dyn Widget<MSG> + 'a>>,
     rect: Rect,
-    horizontal: bool
+    horizontal: bool,
 }
 
-impl<'a,MSG> Ribbon<'a,MSG> {
+impl<'a, MSG> Ribbon<'a, MSG> {
     pub fn new(horizontal: bool) -> Self {
         Self {
             widgets: Vec::new(),
             rect: Rect::zero(),
-            horizontal
+            horizontal,
         }
     }
 
-    pub fn add_widget(mut self, widget: impl Widget<MSG> + 'a) -> Self
-    {
+    pub fn add_widget(mut self, widget: impl Widget<MSG> + 'a) -> Self {
         self.widgets.push(Box::new(widget));
         self
     }
 
-    fn for_all_res<F: FnMut(&mut Box<dyn Widget<MSG> + 'a>) -> GameResult>(&mut self, mut f: F) -> GameResult {
+    fn for_all_res<F: FnMut(&mut Box<dyn Widget<MSG> + 'a>) -> GameResult>(
+        &mut self,
+        mut f: F,
+    ) -> GameResult {
         for w in &mut self.widgets {
             f(w)?
         }
@@ -42,16 +44,14 @@ impl<'a,MSG> Ribbon<'a,MSG> {
     }
 }
 
-impl<MSG> MessageHandler<MSG> for Ribbon<'_,MSG> {
-    fn handle(&mut self, pool: &mut dyn MessagePool<MSG>) {
-        self.for_all(|w| {
-            w.handle(pool)
-        })
+impl<MSG> MessageHandler<MSG> for Ribbon<'_, MSG> {
+    fn handle(&mut self, src: &mut MessagePoolIn<MSG>, dst: &mut MessagePoolOut<MSG>) {
+        self.for_all(|w| w.handle(src, dst))
     }
 }
 
-impl<'a,MSG> EventHandler for Ribbon<'a,MSG> {
-    fn update(&mut self,ctx: &mut Context) -> GameResult {
+impl<'a, MSG> EventHandler for Ribbon<'a, MSG> {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.for_all_res(|w| w.update(ctx))
     }
 
@@ -59,25 +59,17 @@ impl<'a,MSG> EventHandler for Ribbon<'a,MSG> {
         self.for_all_res(|w| w.draw(ctx))
     }
 
-    fn mouse_button_down_event(
-        &mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32,
-    ) {
-        self.for_all( |w|
-            w.mouse_button_down_event(ctx,button,x,y)
-        )
+    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+        self.for_all(|w| w.mouse_button_down_event(ctx, button, x, y))
     }
 
-    fn mouse_button_up_event(
-        &mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32,
-    ) {
-        self.for_all( |w|
-            w.mouse_button_up_event(ctx,button,x,y)
-        )
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
+        self.for_all(|w| w.mouse_button_up_event(ctx, button, x, y))
     }
 }
 
-impl<MSG> Layoutable for Ribbon<'_,MSG> {
-    fn set_rect(&mut self, x:f32, y:f32, w:f32, h:f32) {
+impl<MSG> Layoutable for Ribbon<'_, MSG> {
+    fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.rect.x = x;
         self.rect.y = y;
         self.rect.w = w;

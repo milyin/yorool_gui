@@ -1,14 +1,14 @@
 use crate::gui::Widget;
-use crate::request::{self, MessageHandler};
+use crate::request::{MessageHandler, MessagePool};
 use crate::gui::Layoutable;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::Rect;
 
-pub type Event = request::Event<(),()>;
+pub type Event = ();
 
 pub struct Ribbon<'a,MSG> {
-    widgets: Vec<Box<Widget<MSG> + 'a>>,
+    widgets: Vec<Box<dyn Widget<MSG> + 'a>>,
     rect: Rect,
     horizontal: bool
 }
@@ -22,21 +22,20 @@ impl<'a,MSG> Ribbon<'a,MSG> {
         }
     }
 
-    pub fn add_widget<W>(mut self, widget: W) -> Self
-        where W: Widget<MSG> + 'a
+    pub fn add_widget(mut self, widget: impl Widget<MSG> + 'a) -> Self
     {
         self.widgets.push(Box::new(widget));
         self
     }
 
-    fn for_all_res<F: FnMut(&mut Box<Widget<MSG> + 'a>) -> GameResult>(&mut self, mut f: F) -> GameResult {
+    fn for_all_res<F: FnMut(&mut Box<dyn Widget<MSG> + 'a>) -> GameResult>(&mut self, mut f: F) -> GameResult {
         for w in &mut self.widgets {
             f(w)?
         }
         Ok(())
     }
 
-    fn for_all<F: FnMut(&mut Box<Widget<MSG> + 'a>)>(&mut self, mut f: F) {
+    fn for_all<F: FnMut(&mut Box<dyn Widget<MSG> + 'a>)>(&mut self, mut f: F) {
         for w in &mut self.widgets {
             f(w)
         }
@@ -44,22 +43,10 @@ impl<'a,MSG> Ribbon<'a,MSG> {
 }
 
 impl<MSG> MessageHandler<MSG> for Ribbon<'_,MSG> {
-    type T = ();
-    type S = ();
-    fn collect_impl(&mut self) -> Vec<MSG> {
-        let mut msgs = Vec::new();
-        for w in &mut self.widgets {
-            msgs.append(&mut w.collect());
-        }
-        msgs
-    }
-    fn handle_impl(&mut self, msgs: Vec<MSG>) -> Vec<MSG> {
-        let mut msgs = msgs;
-        for w in &mut self.widgets {
-            msgs = w.handle(msgs);
-            if msgs.is_empty() { break }
-        }
-        msgs
+    fn handle(&mut self, pool: &mut dyn MessagePool<MSG>) {
+        self.for_all(|w| {
+            w.handle(pool)
+        })
     }
 }
 

@@ -1,50 +1,59 @@
-use crate::request::{self, MessageHandler, Unpack};
+use crate::request::{MessageHandler, Unpack, QR, CtrlId, MessagePool, query_by_ctrlid};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 use ggez::graphics::{self, Rect, MeshBuilder, DrawMode, DrawParam};
 use crate::gui::{Layoutable};
 
-pub type Event = request::Event<(),bool>;
 
-type FPack<MSG> = fn(Event) -> MSG;
+#[derive(Debug)]
+pub enum Event {
+    None,
+    SetState(bool),
+    GetState(QR<(),bool>),
+    Changed
+}
+
+impl Default for Event {
+    fn default() -> Event { Event::None }
+}
 
 pub struct Button<MSG> {
     checked: bool,
     touched: bool,
     changed: bool,
     rect: Rect,
-    fpack: FPack<MSG>,
+    ctrlid: CtrlId<MSG,Event>
 }
 
 impl<MSG> Button<MSG>
 {
-    pub fn new(fpack: FPack<MSG>) -> Self
+    pub fn new(ctrlid: CtrlId<MSG,Event>) -> Self
     {
         Self {
             checked: false,
             touched: false,
             changed: false,
             rect: Rect::zero(),
-            fpack,
+            ctrlid,
         }
     }
 }
 
 impl<MSG> MessageHandler<MSG> for Button<MSG> where MSG: Unpack<Event> {
-    type T = ();
-    type S = bool;
-    fn pack(&self, e: Event) -> Option<MSG> { Some((self.fpack)(e)) }
-    fn unpack(&self, m: MSG) -> Result<Event, MSG> { m.unpack(self.fpack) }
-    fn handle_custom(&mut self, _m: ()) -> Option<()> { None }
-    fn get_state(&self) -> bool { self.checked }
-    fn set_state(&mut self, s: bool) { self.checked = s }
-    fn collect_impl(&mut self) -> Vec<MSG> {
-        let mut ret = Vec::new();
+    fn handle(&mut self, pool: &mut dyn MessagePool<MSG>) {
+        for evt in query_by_ctrlid(pool,self.ctrlid) {
+            match evt {
+                Event::SetState(v) => { self.checked = v },
+                Event::GetState(QR::Query(_)) => {
+                    pool.push((self.ctrlid)(Event::GetState(QR::Response(self.checked))))
+                }
+                _ => {}
+            }
+        }
         if self.changed {
             self.changed = false;
-            ret.push((self.fpack)(request::Event::Changed))
+            pool.push((self.ctrlid)(Event::Changed))
         }
-        ret
     }
 }
 

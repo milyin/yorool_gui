@@ -105,56 +105,65 @@ fn new_dummy_waker() -> Waker {
     unsafe { Waker::from_raw(RawWaker::new(std::ptr::null(), &DUMMY_WAKER_VTABLE)) }
 }
 
-/*
-
-struct MessagePoolFuture<'a, MSG, POOL, F, T>
+pub fn get_response<MSG, POOL, EVT, R>(
+    pool: &mut POOL,
+    ctrlid: CtrlId<MSG, EVT>,
+    evtisr: fn(&EVT) -> bool,
+    evttor: fn(EVT) -> R,
+) -> Option<R>
 where
-    POOL: MessagePool<MSG> + Default,
-    F: Fn(&mut MessagePool<MSG>) -> Option<T>
+    EVT: Default,
+    MSG: Unpack<EVT>,
+    POOL: MessagePool<MSG>,
 {
-    shared_state: Rc<SharedState<'a, MSG, POOL>>,
-    f: F
+    // Extract matching responses
+    let mut ctrl_evts = pool.drain(&|m| match m.peek(ctrlid) {
+        Some(evt) => evtisr(evt),
+        None => false,
+    });
+    // Return last response if found
+    if let Some(msg) = ctrl_evts.pop() {
+        Some(evttor(msg.unpack(ctrlid).ok().unwrap())) // it contains EVT - by filter in drain
+    } else {
+        None
+    }
 }
 
-
-impl<'a,MSG,POOL,F,T> MessagePoolFuture<'a, MSG, POOl,F,T>
-    where
-        POOL: MessagePool<MSG> + Default,
-        F: Fn(&mut MessagePool<MSG>) -> Option<T>
+struct MessageRouterFuture<MSG, POOL, EVT, R>
+where
+    POOL: MessagePool<MSG>,
+    MSG: Unpack<EVT>,
+    EVT: Default,
 {
-   pub fn new(f: F) -> Self {
-
-   }
+    pool: Rc<RefCell<POOL>>,
+    ctrlid: CtrlId<MSG, EVT>,
+    evtisr: fn(&EVT) -> bool,
+    evttor: fn(EVT) -> R,
 }
 
-//impl<MSG,F,T> Unpin for MessagePoolFuture<'_,MSG,F,T> {}
-
-impl<MSG, POOL> std::future::Future for MessagePoolFuture<'_, MSG, POOL>
+impl<MSG, POOL, EVT, R> MessageRouterFuture<MSG, POOL, EVT, R>
 where
-    POOL: MessagePool<MSG> + Default
+    POOL: MessagePool<MSG>,
+    MSG: Unpack<EVT>,
+    EVT: Default,
 {
-    type Output = T;
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if let Some(shared_state) = Rc::get_mut(&mut self.shared_state) {
+}
 
+impl<MSG, POOL, EVT, R> std::future::Future for MessageRouterFuture<MSG, POOL, EVT, R>
+where
+    POOL: MessagePool<MSG>,
+    MSG: Unpack<EVT>,
+    EVT: Default,
+{
+    type Output = R;
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut pool = self.pool.borrow_mut();
+        if let Some(r) = get_response(&mut *pool, self.ctrlid, self.evtisr, self.evttor) {
+            Poll::Ready(r)
         } else {
             Poll::Pending
         }
     }
-}
-
-struct SharedState<'a, MSG, POOL>
-where
-    POOL: MessagePool<MSG> + Default,
-{
-    handler: &'a mut MessageHandler<MSG>,
-    pool: POOL,
-}
-*/
-
-struct MessageRouterFuture<MSG, POOL: MessagePool<MSG> + Default> {
-    pool: Rc<RefCell<POOL>>,
-    phantom: std::marker::PhantomData<MSG>,
 }
 
 struct MessageRouterAsync<'a, MSG, POOL: MessagePool<MSG> + Default> {
@@ -173,44 +182,30 @@ where
         }
     }
 
-    pub fn request_sync<EVT, Q, R>(
+    pub async fn request<EVT, Q, R>(
         &mut self,
         ctrlid: CtrlId<MSG, EVT>,
         evtisr: fn(&EVT) -> bool,
         evttor: fn(EVT) -> R,
         evtq: EVT,
-    ) -> Option<R>
+    ) -> R
     where
         EVT: Default,
         MSG: Unpack<EVT>,
     {
-        // Filter only responses
-        let mut pool: RefMut<POOL> = self.pool.borrow_mut();
-        let ctrl_evts = pool.drain(&|m| match m.peek(ctrlid) {
-            Some(evt) => evtisr(evt),
-            None => false,
-        });
-        // Either return response or push query to message pool
-        if let Some(evt) = ctrl_evts.pop() {
-            Ok(evttor(evt))
-        } else {
+        {
+            let mut pool = self.pool.borrow_mut();
+            if let Some(r) = get_response(&mut *pool, ctrlid, evtisr, evttor) {
+                return r;
+            }
             pool.push(ctrlid(evtq));
-            None
         }
-    }
-    /*
-    pub fn request<EVT, MSG: Unpack<EVT>, Q, R>(
-        &mut self,
-        ctrlid: CtrlId<MSG, EVT>,
-        evtisr: fn(&EVT) -> bool,
-        evttor: fn(EVT) -> R,
-        evtq: EVT,
-    ) -> R {
-        if let Some(r) = request_sync(self, ctrlid, evtisr, evttor, evtq) {
-            r
-        } else {
-
+        MessageRouterFuture {
+            pool: self.pool.clone(),
+            ctrlid,
+            evtisr,
+            evttor,
         }
+        .await
     }
-    */
 }

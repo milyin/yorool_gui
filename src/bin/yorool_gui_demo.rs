@@ -10,7 +10,7 @@ use yorool_gui::gui::button::Button;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::gui::{button, Layoutable, Widget};
-use yorool_gui::request::{message_loop, Unpack};
+use yorool_gui::request::{MessageRouterAsync, Unpack, QR};
 
 #[derive(Debug)]
 enum GridMsg {
@@ -81,19 +81,19 @@ fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
 }
 */
 struct GuiDemoState<'a> {
-    grid: Panel<'a, (), GridMsg>,
+    grid: Ribbon<'a, GridMsg>, //Panel<'a, (), GridMsg>
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        let grid = Panel::new(
+        let grid = //Panel::new(
             Ribbon::new(false)
                 .add_widget(Button::new(GridMsg::ButtonA))
                 .add_widget(
                     Ribbon::new(true)
                         .add_widget(Button::new(GridMsg::ButtonB))
                         .add_widget(Button::new(GridMsg::ButtonC)),
-                ),
+//                ),
         );
         Ok(Self { grid })
     }
@@ -102,7 +102,36 @@ impl GuiDemoState<'_> {
 impl EventHandler for GuiDemoState<'_> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         let pool = Vec::new();
-        message_loop(self.grid.as_message_handler(), pool);
+        //message_loop(self.grid.as_message_handler(), pool);
+        let router: MessageRouterAsync<GridMsg, Vec<GridMsg>> = MessageRouterAsync::new(pool);
+
+        router.run(
+            self.grid.as_message_handler(),
+            (async || {
+                let r = router
+                    .request::<button::Event, (), bool>(
+                        |evt| GridMsg::ButtonA(evt),
+                        |evt| {
+                            if let button::Event::GetState(QR::Response(_)) = evt {
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                        |evt| {
+                            if let button::Event::GetState(QR::Response(r)) = evt {
+                                r
+                            } else {
+                                panic!()
+                            }
+                        },
+                        button::Event::GetState(QR::Query(())),
+                    )
+                    .await;
+                dbg!(r);
+            })(),
+        );
+
         let (w, h) = graphics::drawable_size(ctx);
         self.grid.set_rect(0., 0., w, h);
         Ok(())

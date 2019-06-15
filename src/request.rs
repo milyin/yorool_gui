@@ -1,5 +1,6 @@
 use core::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
+use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::Poll;
@@ -22,7 +23,8 @@ pub trait Unpack<EVT: Default> {
 }
 
 pub trait MessagePoolIn<MSG> {
-    fn drain(&mut self, f: &Fn(&MSG) -> bool) -> Vec<MSG>;
+    fn drain(&mut self) -> Vec<MSG>;
+    fn drain_filter(&mut self, f: &Fn(&MSG) -> bool) -> Vec<MSG>;
     fn query(&self, f: &Fn(&MSG) -> bool) -> Vec<&MSG>;
     fn is_empty(&self) -> bool;
     fn clear(&mut self);
@@ -30,10 +32,14 @@ pub trait MessagePoolIn<MSG> {
 
 pub trait MessagePoolOut<MSG> {
     fn push(&mut self, m: MSG);
+    fn append(&mut self, other: &mut MessagePoolIn<MSG>);
 }
 
 impl<MSG> MessagePoolIn<MSG> for Vec<MSG> {
-    fn drain(&mut self, f: &Fn(&MSG) -> bool) -> Vec<MSG> {
+    fn drain(&mut self) -> Vec<MSG> {
+        self.split_off(0)
+    }
+    fn drain_filter(&mut self, f: &Fn(&MSG) -> bool) -> Vec<MSG> {
         self.drain_filter(|m| f(m)).collect()
     }
     fn query(&self, f: &Fn(&MSG) -> bool) -> Vec<&MSG> {
@@ -51,6 +57,9 @@ impl<MSG> MessagePoolOut<MSG> for Vec<MSG> {
     fn push(&mut self, m: MSG) {
         self.push(m)
     }
+    fn append(&mut self, other: &mut MessagePoolIn<MSG>) {
+        self.append(&mut other.drain())
+    }
 }
 
 pub trait MessagePool<MSG>: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
@@ -64,7 +73,7 @@ pub fn query_by_ctrlid<EVT: Default, MSG: Unpack<EVT>>(
     pool: &mut MessagePoolIn<MSG>,
     ctrl: CtrlId<MSG, EVT>,
 ) -> Vec<EVT> {
-    let msgs = pool.drain(&|msg: &MSG| msg.peek(ctrl).is_some());
+    let msgs = pool.drain_filter(&|msg: &MSG| msg.peek(ctrl).is_some());
     msgs.into_iter()
         .filter_map(|msg| msg.unpack(ctrl).ok())
         .collect()
@@ -117,7 +126,7 @@ where
     POOL: MessagePool<MSG>,
 {
     // Extract matching responses
-    let mut ctrl_evts = pool.drain(&|m| match m.peek(ctrlid) {
+    let mut ctrl_evts = pool.drain_filter(&|m| match m.peek(ctrlid) {
         Some(evt) => evtisr(evt),
         None => false,
     });
@@ -141,14 +150,6 @@ where
     evttor: fn(EVT) -> R,
 }
 
-impl<MSG, POOL, EVT, R> MessageRouterFuture<MSG, POOL, EVT, R>
-where
-    POOL: MessagePool<MSG>,
-    MSG: Unpack<EVT>,
-    EVT: Default,
-{
-}
-
 impl<MSG, POOL, EVT, R> std::future::Future for MessageRouterFuture<MSG, POOL, EVT, R>
 where
     POOL: MessagePool<MSG>,
@@ -166,24 +167,32 @@ where
     }
 }
 
-struct MessageRouterAsync<'a, MSG, POOL: MessagePool<MSG> + Default> {
-    pool: Rc<RefCell<POOL>>,
-    handler: &'a mut MessageHandler<MSG>,
+impl<MSG, POOL, EVT, R> Unpin for MessageRouterFuture<MSG, POOL, EVT, R>
+where
+    POOL: MessagePool<MSG>,
+    MSG: Unpack<EVT>,
+    EVT: Default,
+{
 }
 
-impl<'a, MSG, POOL> MessageRouterAsync<'a, MSG, POOL>
+pub struct MessageRouterAsync<MSG, POOL: MessagePool<MSG> + Default> {
+    pool: Rc<RefCell<POOL>>,
+    phantom: std::marker::PhantomData<MSG>,
+}
+
+impl<MSG, POOL> MessageRouterAsync<MSG, POOL>
 where
     POOL: MessagePool<MSG> + Default,
 {
-    pub fn new(handler: &'a mut MessageHandler<MSG>) -> MessageRouterAsync<'a, MSG, POOL> {
+    pub fn new(pool: POOL) -> MessageRouterAsync<MSG, POOL> {
         Self {
-            pool: Rc::new(RefCell::new(POOL::default())),
-            handler,
+            pool: Rc::new(RefCell::new(pool)),
+            phantom: std::marker::PhantomData,
         }
     }
 
     pub async fn request<EVT, Q, R>(
-        &mut self,
+        &self,
         ctrlid: CtrlId<MSG, EVT>,
         evtisr: fn(&EVT) -> bool,
         evttor: fn(EVT) -> R,
@@ -207,5 +216,26 @@ where
             evttor,
         }
         .await
+    }
+
+    pub fn run<F: Future>(&self, handler: &mut MessageHandler<MSG>, f: F) -> F::Output {
+        //pub fn run<EVT, R>(&self, f: MessageRouterFuture<MSG, POOL, EVT, R>)
+        //where
+        //    MSG: Unpack<EVT>,
+        //    EVT: Default,
+        //{
+        let mut future = Box::pin(f);
+        loop {
+            match Pin::new(&mut future).poll(&mut Context::from_waker(&new_dummy_waker())) {
+                Poll::Ready(v) => return v,
+                Poll::Pending => {
+                    let mut src = self.pool.borrow_mut();
+                    let mut dst = POOL::default();
+                    handler.handle(&mut *src, &mut dst);
+                    src.clear();
+                    src.append(&mut dst);
+                }
+            }
+        }
     }
 }

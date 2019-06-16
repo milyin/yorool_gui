@@ -10,7 +10,9 @@ use yorool_gui::gui::button::Button;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::gui::{button, Layoutable, Widget};
-use yorool_gui::request::{MessageRouterAsync, Unpack, QR};
+use yorool_gui::request::{
+    CtrlId, EvtId, MessageHandler, MessageProc, MessageRouterAsync, Unpack, QR,
+};
 
 #[derive(Debug)]
 enum GridMsg {
@@ -26,9 +28,9 @@ impl Unpack<button::Event> for GridMsg {
     fn peek(&self, f: fn(button::Event) -> Self) -> Option<&button::Event> {
         let test = f(button::Event::default());
         match (self, test) {
-            (GridMsg::ButtonA(ref e), GridMsg::ButtonA(_)) => Some(&e),
-            (GridMsg::ButtonB(ref e), GridMsg::ButtonB(_)) => Some(&e),
-            (GridMsg::ButtonC(ref e), GridMsg::ButtonC(_)) => Some(&e),
+            (GridMsg::ButtonA(ref e), GridMsg::ButtonA(_)) => Some(e),
+            (GridMsg::ButtonB(ref e), GridMsg::ButtonB(_)) => Some(e),
+            (GridMsg::ButtonC(ref e), GridMsg::ButtonC(_)) => Some(e),
             _ => None,
         }
     }
@@ -80,6 +82,33 @@ fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
     }
 }
 */
+
+#[derive(Default)]
+struct Radio<MSG> {
+    buttons: Vec<CtrlId<MSG, button::Event>>,
+}
+
+impl<MSG> Radio<MSG> {
+    fn add(&mut self, ctrl: CtrlId<MSG, button::Event>) -> &mut Self {
+        self.buttons.push(ctrl);
+        self
+    }
+    async fn init(&self, router: &MessageRouterAsync<MSG>, default: CtrlId<MSG, button::Event>) {
+        for b in self.buttons {
+            router.query(b, button::Event::SetState, false).await;
+        }
+        router.query(default, button::Event::SetState, true).await;
+    }
+}
+
+impl<MSG> MessageProc<MSG> for Radio<MSG> {
+    fn run(&self, handler: &mut MessageHandler<MSG>) {
+        let router = MessageRouterAsync::new(pool);
+        let proc = async || {};
+        router.run(handler, proc());
+    }
+}
+
 struct GuiDemoState<'a> {
     grid: Ribbon<'a, GridMsg>, //Panel<'a, (), GridMsg>
 }

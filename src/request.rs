@@ -13,6 +13,27 @@ pub enum QR<Q, R> {
     Response(R),
 }
 
+impl<Q, R> Default for QR<Q, R>
+where
+    R: Default,
+{
+    fn default() -> QR<Q, R> {
+        QR::Response(R::default())
+    }
+}
+
+pub type EvtId<EVT, Q, R> = fn(QR<Q, R>) -> EVT;
+
+pub trait EvtUnpack<Q, R: Default> {
+    fn make_query(evt: EvtId<Self, Q, R>, q: Q) -> Self {
+        evt(QR::Query(q))
+    }
+    fn unpack_response(self, ctrl: EvtId<Self, Q, R>) -> Result<R, Self>
+    where
+        Self: Sized;
+    fn peek_response(&self, ctrl: EvtId<Self, Q, R>) -> Option<&R>;
+}
+
 pub type CtrlId<MSG, EVT> = fn(EVT) -> MSG;
 
 pub trait Unpack<EVT: Default> {
@@ -114,17 +135,19 @@ fn new_dummy_waker() -> Waker {
     unsafe { Waker::from_raw(RawWaker::new(std::ptr::null(), &DUMMY_WAKER_VTABLE)) }
 }
 
-pub fn get_response<MSG, POOL, EVT, R>(
+pub fn get_response<MSG, POOL, EVT, Q, R>(
     pool: &mut POOL,
     ctrlid: CtrlId<MSG, EVT>,
-    evtisr: fn(&EVT) -> bool,
-    evttor: fn(EVT) -> R,
+    evtid: EvtId<EVT, Q, R>,
 ) -> Option<R>
 where
-    EVT: Default,
+    R: Default,
+    EVT: EvtUnpack<Q, R>,
     MSG: Unpack<EVT>,
     POOL: MessagePool<MSG>,
 {
+    let evtisr = |evt: &EVT| evt.peek(&evtid).is_some();
+    let evttor = |evt: EVT| evt.unpack(evtid).ok().unwrap();
     // Extract matching responses
     let mut ctrl_evts = pool.drain_filter(&|m| match m.peek(ctrlid) {
         Some(evt) => evtisr(evt),
@@ -138,28 +161,27 @@ where
     }
 }
 
-struct MessageRouterFuture<MSG, POOL, EVT, R>
+struct MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
-    EVT: Default,
+    EVT: EvtUnpack<Q, R>,
 {
     pool: Rc<RefCell<POOL>>,
     ctrlid: CtrlId<MSG, EVT>,
-    evtisr: fn(&EVT) -> bool,
-    evttor: fn(EVT) -> R,
+    evtid: EvtId<EVT, Q, R>,
 }
 
-impl<MSG, POOL, EVT, R> std::future::Future for MessageRouterFuture<MSG, POOL, EVT, R>
+impl<MSG, POOL, EVT, Q, R> std::future::Future for MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
-    EVT: Default,
+    EVT: EvtUnpack<Q, R>,
 {
     type Output = R;
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut pool = self.pool.borrow_mut();
-        if let Some(r) = get_response(&mut *pool, self.ctrlid, self.evtisr, self.evttor) {
+        if let Some(r) = get_response(&mut *pool, self.ctrlid, self.evtid) {
             Poll::Ready(r)
         } else {
             Poll::Pending
@@ -167,15 +189,15 @@ where
     }
 }
 
-impl<MSG, POOL, EVT, R> Unpin for MessageRouterFuture<MSG, POOL, EVT, R>
+impl<MSG, POOL, EVT, Q, R> Unpin for MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
-    EVT: Default,
+    EVT: EvtUnpack<Q, R>,
 {
 }
 
-pub struct MessageRouterAsync<MSG, POOL: MessagePool<MSG> + Default> {
+pub struct MessageRouterAsync<MSG, POOL: MessagePool<MSG> + Default = Vec<MSG>> {
     pool: Rc<RefCell<POOL>>,
     phantom: std::marker::PhantomData<MSG>,
 }
@@ -191,29 +213,28 @@ where
         }
     }
 
-    pub async fn request<EVT, Q, R>(
+    pub async fn query<EVT, Q, R>(
         &self,
         ctrlid: CtrlId<MSG, EVT>,
-        evtisr: fn(&EVT) -> bool,
-        evttor: fn(EVT) -> R,
-        evtq: EVT,
+        evtid: EvtId<EVT, Q, R>,
+        param: Q,
     ) -> R
     where
-        EVT: Default,
+        R: Default,
         MSG: Unpack<EVT>,
+        EVT: EvtUnpack<Q, R>,
     {
         {
             let mut pool = self.pool.borrow_mut();
-            if let Some(r) = get_response(&mut *pool, ctrlid, evtisr, evttor) {
+            if let Some(r) = get_response(&mut *pool, ctrlid, evtid) {
                 return r;
             }
-            pool.push(ctrlid(evtq));
+            pool.push(ctrlid(evtid(QR::Query(param))));
         }
         MessageRouterFuture {
             pool: self.pool.clone(),
             ctrlid,
-            evtisr,
-            evttor,
+            evtid,
         }
         .await
     }

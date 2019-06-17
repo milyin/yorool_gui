@@ -10,9 +10,7 @@ use yorool_gui::gui::button::Button;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::gui::{button, Layoutable, Widget};
-use yorool_gui::request::{
-    CtrlId, EvtId, MessageHandler, MessageProc, MessageRouterAsync, Unpack, QR,
-};
+use yorool_gui::request::{CtrlId, EvtId, MessageHandler, MessageRouterAsync, Unpack, QR};
 
 #[derive(Debug)]
 enum GridMsg {
@@ -88,7 +86,10 @@ struct Radio<MSG> {
     buttons: Vec<CtrlId<MSG, button::Event>>,
 }
 
-impl<MSG> Radio<MSG> {
+impl<MSG> Radio<MSG>
+where
+    MSG: Unpack<button::Event>,
+{
     fn add(&mut self, ctrl: CtrlId<MSG, button::Event>) -> &mut Self {
         self.buttons.push(ctrl);
         self
@@ -98,14 +99,6 @@ impl<MSG> Radio<MSG> {
             router.query(b, button::Event::SetState, false).await;
         }
         router.query(default, button::Event::SetState, true).await;
-    }
-}
-
-impl<MSG> MessageProc<MSG> for Radio<MSG> {
-    fn run(&self, handler: &mut MessageHandler<MSG>) {
-        let router = MessageRouterAsync::new(pool);
-        let proc = async || {};
-        router.run(handler, proc());
     }
 }
 

@@ -38,6 +38,26 @@ impl EvtUnpack<(), bool> for Event {
     }
 }
 
+impl EvtUnpack<bool, ()> for Event {
+    fn peek_response(&self, evt: EvtId<Event, bool, ()>) -> Option<&()> {
+        let test = evt(QR::Response(<()>::default()));
+        match (self, test) {
+            (Event::SetState(QR::Response(ref e)), Event::GetState(QR::Response(_))) => Some(e),
+            _ => None,
+        }
+    }
+    fn unpack_response(self, evt: EvtId<Event, bool, ()>) -> Result<(), Self>
+    where
+        Self: Sized,
+    {
+        let test = evt(QR::Response(<()>::default()));
+        match (self, test) {
+            (Event::SetState(QR::Response(e)), Event::GetState(QR::Response(_))) => Ok(e),
+            (m, _) => Err(m),
+        }
+    }
+}
+
 impl Default for Event {
     fn default() -> Event {
         Event::None
@@ -71,7 +91,10 @@ where
     fn handle(&mut self, src: &mut MessagePoolIn<MSG>, dst: &mut MessagePoolOut<MSG>) {
         for evt in query_by_ctrlid(src, self.ctrlid) {
             match evt {
-                Event::SetState(v) => self.checked = v,
+                Event::SetState(QR::Query(v)) => {
+                    self.checked = v;
+                    dst.push((self.ctrlid)(Event::SetState(QR::Response(()))))
+                }
                 Event::GetState(QR::Query(_)) => {
                     dst.push((self.ctrlid)(Event::GetState(QR::Response(self.checked))))
                 }

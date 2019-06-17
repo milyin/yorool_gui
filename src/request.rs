@@ -25,7 +25,10 @@ where
 pub type EvtId<EVT, Q, R> = fn(QR<Q, R>) -> EVT;
 
 pub trait EvtUnpack<Q, R: Default> {
-    fn make_query(evt: EvtId<Self, Q, R>, q: Q) -> Self {
+    fn make_query(evt: EvtId<Self, Q, R>, q: Q) -> Self
+    where
+        Self: Sized,
+    {
         evt(QR::Query(q))
     }
     fn unpack_response(self, ctrl: EvtId<Self, Q, R>) -> Result<R, Self>
@@ -141,13 +144,14 @@ pub fn get_response<MSG, POOL, EVT, Q, R>(
     evtid: EvtId<EVT, Q, R>,
 ) -> Option<R>
 where
+    EVT: Default,
     R: Default,
     EVT: EvtUnpack<Q, R>,
     MSG: Unpack<EVT>,
     POOL: MessagePool<MSG>,
 {
-    let evtisr = |evt: &EVT| evt.peek(&evtid).is_some();
-    let evttor = |evt: EVT| evt.unpack(evtid).ok().unwrap();
+    let evtisr = |evt: &EVT| evt.peek_response(evtid).is_some();
+    let evttor = |evt: EVT| evt.unpack_response(evtid).ok().unwrap();
     // Extract matching responses
     let mut ctrl_evts = pool.drain_filter(&|m| match m.peek(ctrlid) {
         Some(evt) => evtisr(evt),
@@ -163,6 +167,8 @@ where
 
 struct MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
+    R: Default,
+    EVT: Default,
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
     EVT: EvtUnpack<Q, R>,
@@ -174,6 +180,8 @@ where
 
 impl<MSG, POOL, EVT, Q, R> std::future::Future for MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
+    R: Default,
+    EVT: Default,
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
     EVT: EvtUnpack<Q, R>,
@@ -191,6 +199,8 @@ where
 
 impl<MSG, POOL, EVT, Q, R> Unpin for MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
+    R: Default,
+    EVT: Default,
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
     EVT: EvtUnpack<Q, R>,
@@ -221,6 +231,7 @@ where
     ) -> R
     where
         R: Default,
+        EVT: Default,
         MSG: Unpack<EVT>,
         EVT: EvtUnpack<Q, R>,
     {

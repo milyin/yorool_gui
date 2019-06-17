@@ -1,5 +1,5 @@
 use crate::gui::{Layoutable, Widget};
-use crate::request::{message_loop, MessageHandler, MessagePoolIn, MessagePoolOut};
+use crate::request::{MessageHandler, MessageHandlerExecutor, MessagePoolIn, MessagePoolOut};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 
@@ -7,27 +7,49 @@ pub type Event = ();
 
 pub struct Panel<'a, EXTMSG, INTMSG> {
     widget: Box<dyn Widget<INTMSG> + 'a>,
+    handlers: Vec<Box<dyn MessageHandlerExecutor<INTMSG> + 'a>>,
     phantom: std::marker::PhantomData<EXTMSG>,
 }
 
-impl<'a, EXTMSG, INTMSG> Panel<'a, EXTMSG, INTMSG> {
+impl<'a, EXTMSG, INTMSG> Panel<'a, EXTMSG, INTMSG>
+where
+    INTMSG: Clone,
+{
     pub fn new<W: Widget<INTMSG> + 'a>(w: W) -> Self {
         Self {
             widget: box w,
+            handlers: Vec::new(),
             phantom: std::marker::PhantomData,
+        }
+    }
+    pub fn add_handler<H: MessageHandlerExecutor<INTMSG> + 'a>(mut self, handler: H) -> Self {
+        self.handlers.push(box handler);
+        self
+    }
+    pub fn run_handlers(&mut self) {
+        // collect notifications
+        let mut notifications = Vec::new();
+        self.widget.handle(&mut Vec::new(), &mut notifications);
+        // handle notifications by registered handlers
+        for h in &mut self.handlers {
+            h.execute(self.widget.as_message_handler(), &mut notifications.clone());
         }
     }
 }
 
-impl<'a, EXTMSG, INTMSG> MessageHandler<EXTMSG> for Panel<'a, EXTMSG, INTMSG> {
-    fn handle(&mut self, _src: &mut MessagePoolIn<EXTMSG>, _dst: &mut MessagePoolOut<EXTMSG>) {
-        let intpool = Vec::new();
-        message_loop(self.widget.as_message_handler(), intpool);
-    }
+impl<'a, EXTMSG, INTMSG> MessageHandler<EXTMSG> for Panel<'a, EXTMSG, INTMSG>
+where
+    INTMSG: Clone,
+{
+    fn handle(&mut self, _src: &mut MessagePoolIn<EXTMSG>, _dst: &mut MessagePoolOut<EXTMSG>) {}
 }
 
-impl<EXTMSG, INTMSG> EventHandler for Panel<'_, EXTMSG, INTMSG> {
+impl<EXTMSG, INTMSG> EventHandler for Panel<'_, EXTMSG, INTMSG>
+where
+    INTMSG: Clone,
+{
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        self.run_handlers();
         self.widget.update(ctx)
     }
 

@@ -9,10 +9,13 @@ use ggez::{Context, ContextBuilder, GameResult};
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::gui::{button, Layoutable, Widget};
-use yorool_gui::request::{CtrlId, EvtId, MessageHandler, MessageRouterAsync, Unpack, QR};
+use yorool_gui::gui::{button, Layoutable};
+use yorool_gui::request::{
+    query_by_ctrlid, CtrlId, MessageHandler, MessageHandlerExecutor, MessagePoolIn,
+    MessageRouterAsync, Unpack,
+};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum GridMsg {
     ButtonA(button::Event),
     ButtonB(button::Event),
@@ -43,43 +46,6 @@ impl Unpack<button::Event> for GridMsg {
         }
     }
 }
-/*
-fn radio_group_query() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
-    |mut msgs| {
-        if is_changed(GuiDemoMsg::ButtonA, &msgs) ||
-           is_changed(GuiDemoMsg::ButtonB, &msgs) ||
-           is_changed(GuiDemoMsg::ButtonC, &msgs)
-        {
-            msgs.push(GuiDemoMsg::ButtonA(Event::QueryState));
-            msgs.push(GuiDemoMsg::ButtonB(Event::QueryState));
-            msgs.push(GuiDemoMsg::ButtonC(Event::QueryState));
-        }
-        msgs
-    }
-}
-
-fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
-    |mut msgs| {
-        if let (Some(a), Some(b), Some(c)) = (
-            get_state(GuiDemoMsg::ButtonA, &msgs),
-            get_state(GuiDemoMsg::ButtonB, &msgs),
-            get_state(GuiDemoMsg::ButtonC, &msgs))
-        {
-            if *a && is_changed(GuiDemoMsg::ButtonA, &msgs) {
-                msgs.push(GuiDemoMsg::ButtonB(Event::SetState(false)));
-                msgs.push(GuiDemoMsg::ButtonC(Event::SetState(false)));
-            } else if *b && is_changed(GuiDemoMsg::ButtonB, &msgs) {
-                msgs.push(GuiDemoMsg::ButtonA(Event::SetState(false)));
-                msgs.push(GuiDemoMsg::ButtonC(Event::SetState(false)));
-            } else if *c && is_changed(GuiDemoMsg::ButtonC, &msgs) {
-                msgs.push(GuiDemoMsg::ButtonA(Event::SetState(false)));
-                msgs.push(GuiDemoMsg::ButtonB(Event::SetState(false)));
-            }
-        }
-        msgs
-    }
-}
-*/
 
 struct Radio<MSG> {
     buttons: Vec<CtrlId<MSG, button::Event>>,
@@ -108,6 +74,39 @@ where
         }
         router.query(default, button::Event::SetState, true).await;
     }
+    async fn on_change<'a>(
+        &'a self,
+        router: &'a MessageRouterAsync<MSG>,
+        changed: CtrlId<MSG, button::Event>,
+    ) {
+        if router.query(changed, button::Event::GetState, ()).await {
+            for b in &self.buttons {
+                router.query(*b, button::Event::SetState, false).await;
+            }
+            router.query(changed, button::Event::SetState, true).await;
+        } else {
+            router.query(changed, button::Event::SetState, true).await;
+        }
+    }
+}
+
+impl<MSG> MessageHandlerExecutor<MSG> for Radio<MSG>
+where
+    MSG: Unpack<button::Event>,
+{
+    fn execute(&mut self, handler: &mut MessageHandler<MSG>, seed: &mut MessagePoolIn<MSG>) {
+        for b in &self.buttons {
+            for e in query_by_ctrlid(seed, *b) {
+                match e {
+                    button::Event::Changed => {
+                        let router = MessageRouterAsync::new(Vec::new());
+                        router.run(handler, self.on_change(&router, *b));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
 }
 
 struct GuiDemoState<'a> {
@@ -116,11 +115,10 @@ struct GuiDemoState<'a> {
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        let mut radio = Radio::new()
+        let radio = Radio::new()
             .add(GridMsg::ButtonA)
             .add(GridMsg::ButtonB)
             .add(GridMsg::ButtonC);
-
         let mut grid = Ribbon::new(false)
             .add_widget(Button::new(GridMsg::ButtonA))
             .add_widget(
@@ -130,16 +128,14 @@ impl GuiDemoState<'_> {
             );
         let router = MessageRouterAsync::new(Vec::new());
         router.run(&mut grid, radio.init(&router, GridMsg::ButtonA));
-        let panel = Panel::new(grid);
+        let panel = Panel::new(grid).add_handler(radio);
         Ok(Self { panel })
     }
 }
 
 impl EventHandler for GuiDemoState<'_> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        //let pool = Vec::new();
-        //message_loop(self.grid.as_message_handler(), pool);
-        //let router = MessageRouterAsync::new(pool);
+        self.panel.update(ctx)?;
         let (w, h) = graphics::drawable_size(ctx);
         self.panel.set_rect(0., 0., w, h);
         Ok(())

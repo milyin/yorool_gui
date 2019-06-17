@@ -6,15 +6,20 @@ use std::task::Poll;
 use std::task::RawWakerVTable;
 use std::task::{Context, RawWaker, Waker};
 
-#[derive(Debug)]
-pub enum QR<Q, R> {
+#[derive(Debug, Clone)]
+pub enum QR<Q, R>
+where
+    Q: Clone,
+    R: Clone,
+{
     Query(Q),
     Response(R),
 }
 
 impl<Q, R> Default for QR<Q, R>
 where
-    R: Default,
+    Q: Clone,
+    R: Default + Clone,
 {
     fn default() -> QR<Q, R> {
         QR::Response(R::default())
@@ -23,7 +28,7 @@ where
 
 pub type EvtId<EVT, Q, R> = fn(QR<Q, R>) -> EVT;
 
-pub trait EvtUnpack<Q, R: Default> {
+pub trait EvtUnpack<Q: Clone, R: Default + Clone> {
     fn make_query(evt: EvtId<Self, Q, R>, q: Q) -> Self
     where
         Self: Sized,
@@ -92,6 +97,10 @@ pub trait MessageHandler<MSG> {
     fn handle(&mut self, from: &mut MessagePoolIn<MSG>, to: &mut MessagePoolOut<MSG>);
 }
 
+pub trait MessageHandlerExecutor<MSG> {
+    fn execute(&mut self, handler: &mut MessageHandler<MSG>, seed: &mut MessagePoolIn<MSG>);
+}
+
 pub fn query_by_ctrlid<EVT: Default, MSG: Unpack<EVT>>(
     pool: &mut MessagePoolIn<MSG>,
     ctrl: CtrlId<MSG, EVT>,
@@ -100,20 +109,6 @@ pub fn query_by_ctrlid<EVT: Default, MSG: Unpack<EVT>>(
     msgs.into_iter()
         .filter_map(|msg| msg.unpack(ctrl).ok())
         .collect()
-}
-
-pub fn message_loop<MSG, POOL: MessagePool<MSG> + Default>(
-    handler: &mut MessageHandler<MSG>,
-    mut src: POOL,
-) {
-    loop {
-        let mut dst = POOL::default();
-        handler.handle(&mut src, &mut dst);
-        if dst.is_empty() {
-            break;
-        }
-        std::mem::swap(&mut src, &mut dst);
-    }
 }
 
 const DUMMY_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
@@ -127,9 +122,9 @@ unsafe fn dummy_waker_clone(data: *const ()) -> RawWaker {
     RawWaker::new(data, &DUMMY_WAKER_VTABLE)
 }
 
-unsafe fn dummy_waker_wake(data: *const ()) {}
+unsafe fn dummy_waker_wake(_data: *const ()) {}
 
-unsafe fn dummy_waker_wake_by_ref(data: *const ()) {}
+unsafe fn dummy_waker_wake_by_ref(_data: *const ()) {}
 
 unsafe fn dummy_waker_drop(_data: *const ()) {}
 
@@ -144,7 +139,8 @@ pub fn get_response<MSG, POOL, EVT, Q, R>(
 ) -> Option<R>
 where
     EVT: Default,
-    R: Default,
+    Q: Clone,
+    R: Default + Clone,
     EVT: EvtUnpack<Q, R>,
     MSG: Unpack<EVT>,
     POOL: MessagePool<MSG>,
@@ -166,7 +162,8 @@ where
 
 struct MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
-    R: Default,
+    Q: Clone,
+    R: Default + Clone,
     EVT: Default,
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
@@ -179,7 +176,8 @@ where
 
 impl<MSG, POOL, EVT, Q, R> std::future::Future for MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
-    R: Default,
+    Q: Clone,
+    R: Default + Clone,
     EVT: Default,
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
@@ -198,7 +196,8 @@ where
 
 impl<MSG, POOL, EVT, Q, R> Unpin for MessageRouterFuture<MSG, POOL, EVT, Q, R>
 where
-    R: Default,
+    Q: Clone,
+    R: Default + Clone,
     EVT: Default,
     POOL: MessagePool<MSG>,
     MSG: Unpack<EVT>,
@@ -229,7 +228,8 @@ where
         param: Q,
     ) -> R
     where
-        R: Default,
+        Q: Clone,
+        R: Default + Clone,
         EVT: Default,
         MSG: Unpack<EVT>,
         EVT: EvtUnpack<Q, R>,

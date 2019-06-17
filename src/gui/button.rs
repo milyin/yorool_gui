@@ -7,7 +7,7 @@ use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Event {
     None,
     SetState(QR<bool, ()>),
@@ -93,8 +93,7 @@ where
             match evt {
                 Event::SetState(QR::Query(v)) => {
                     self.checked = v;
-                    dst.push((self.ctrlid)(Event::SetState(QR::Response(()))));
-                    dbg!(v);
+                    dst.push((self.ctrlid)(Event::SetState(QR::Response(()))))
                 }
                 Event::GetState(QR::Query(_)) => {
                     dst.push((self.ctrlid)(Event::GetState(QR::Response(self.checked))))

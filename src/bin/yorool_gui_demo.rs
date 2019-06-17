@@ -94,9 +94,13 @@ where
         self.buttons.push(ctrl);
         self
     }
-    async fn init(&self, router: &MessageRouterAsync<MSG>, default: CtrlId<MSG, button::Event>) {
-        for b in self.buttons {
-            router.query(b, button::Event::SetState, false).await;
+    async fn init<'a>(
+        &'a self,
+        router: &'a MessageRouterAsync<MSG>,
+        default: CtrlId<MSG, button::Event>,
+    ) {
+        for b in &self.buttons {
+            router.query(*b, button::Event::SetState, false).await;
         }
         router.query(default, button::Event::SetState, true).await;
     }
@@ -126,34 +130,6 @@ impl EventHandler for GuiDemoState<'_> {
         let pool = Vec::new();
         //message_loop(self.grid.as_message_handler(), pool);
         let router: MessageRouterAsync<GridMsg, Vec<GridMsg>> = MessageRouterAsync::new(pool);
-
-        router.run(
-            self.grid.as_message_handler(),
-            (async || {
-                let r = router
-                    .request::<button::Event, (), bool>(
-                        |evt| GridMsg::ButtonA(evt),
-                        |evt| {
-                            if let button::Event::GetState(QR::Response(_)) = evt {
-                                true
-                            } else {
-                                false
-                            }
-                        },
-                        |evt| {
-                            if let button::Event::GetState(QR::Response(r)) = evt {
-                                r
-                            } else {
-                                panic!()
-                            }
-                        },
-                        button::Event::GetState(QR::Query(())),
-                    )
-                    .await;
-                dbg!(r);
-            })(),
-        );
-
         let (w, h) = graphics::drawable_size(ctx);
         self.grid.set_rect(0., 0., w, h);
         Ok(())

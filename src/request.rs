@@ -1,5 +1,4 @@
-use core::borrow::Borrow;
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;

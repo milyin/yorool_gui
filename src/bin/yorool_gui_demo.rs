@@ -81,7 +81,6 @@ fn radio_group_execute() -> impl Fn(Vec<GuiDemoMsg>) -> Vec<GuiDemoMsg> {
 }
 */
 
-#[derive(Default)]
 struct Radio<MSG> {
     buttons: Vec<CtrlId<MSG, button::Event>>,
 }
@@ -90,7 +89,12 @@ impl<MSG> Radio<MSG>
 where
     MSG: Unpack<button::Event>,
 {
-    fn add(&mut self, ctrl: CtrlId<MSG, button::Event>) -> &mut Self {
+    fn new() -> Self {
+        Self {
+            buttons: Vec::new(),
+        }
+    }
+    fn add(mut self, ctrl: CtrlId<MSG, button::Event>) -> Self {
         self.buttons.push(ctrl);
         self
     }
@@ -107,46 +111,52 @@ where
 }
 
 struct GuiDemoState<'a> {
-    grid: Ribbon<'a, GridMsg>, //Panel<'a, (), GridMsg>
+    panel: Panel<'a, (), GridMsg>,
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        let grid = //Panel::new(
-            Ribbon::new(false)
-                .add_widget(Button::new(GridMsg::ButtonA))
-                .add_widget(
-                    Ribbon::new(true)
-                        .add_widget(Button::new(GridMsg::ButtonB))
-                        .add_widget(Button::new(GridMsg::ButtonC)),
-//                ),
-        );
-        Ok(Self { grid })
+        let mut radio = Radio::new()
+            .add(GridMsg::ButtonA)
+            .add(GridMsg::ButtonB)
+            .add(GridMsg::ButtonC);
+
+        let mut grid = Ribbon::new(false)
+            .add_widget(Button::new(GridMsg::ButtonA))
+            .add_widget(
+                Ribbon::new(true)
+                    .add_widget(Button::new(GridMsg::ButtonB))
+                    .add_widget(Button::new(GridMsg::ButtonC)),
+            );
+        let router = MessageRouterAsync::new(Vec::new());
+        router.run(&mut grid, radio.init(&router, GridMsg::ButtonA));
+        let panel = Panel::new(grid);
+        Ok(Self { panel })
     }
 }
 
 impl EventHandler for GuiDemoState<'_> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        let pool = Vec::new();
+        //let pool = Vec::new();
         //message_loop(self.grid.as_message_handler(), pool);
-        let router: MessageRouterAsync<GridMsg, Vec<GridMsg>> = MessageRouterAsync::new(pool);
+        //let router = MessageRouterAsync::new(pool);
         let (w, h) = graphics::drawable_size(ctx);
-        self.grid.set_rect(0., 0., w, h);
+        self.panel.set_rect(0., 0., w, h);
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, Color::new(0., 0., 0., 0.));
-        self.grid.draw(ctx)?;
+        self.panel.draw(ctx)?;
         graphics::present(ctx)
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        self.grid.mouse_button_down_event(ctx, button, x, y)
+        self.panel.mouse_button_down_event(ctx, button, x, y)
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        self.grid.mouse_button_up_event(ctx, button, x, y)
+        self.panel.mouse_button_up_event(ctx, button, x, y)
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {

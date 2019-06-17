@@ -42,7 +42,7 @@ impl EvtUnpack<bool, ()> for Event {
     fn peek_response(&self, evt: EvtId<Event, bool, ()>) -> Option<&()> {
         let test = evt(QR::Response(<()>::default()));
         match (self, test) {
-            (Event::SetState(QR::Response(ref e)), Event::GetState(QR::Response(_))) => Some(e),
+            (Event::SetState(QR::Response(ref e)), Event::SetState(QR::Response(_))) => Some(e),
             _ => None,
         }
     }
@@ -52,7 +52,7 @@ impl EvtUnpack<bool, ()> for Event {
     {
         let test = evt(QR::Response(<()>::default()));
         match (self, test) {
-            (Event::SetState(QR::Response(e)), Event::GetState(QR::Response(_))) => Ok(e),
+            (Event::SetState(QR::Response(e)), Event::SetState(QR::Response(_))) => Ok(e),
             (m, _) => Err(m),
         }
     }
@@ -93,7 +93,8 @@ where
             match evt {
                 Event::SetState(QR::Query(v)) => {
                     self.checked = v;
-                    dst.push((self.ctrlid)(Event::SetState(QR::Response(()))))
+                    dst.push((self.ctrlid)(Event::SetState(QR::Response(()))));
+                    dbg!(v);
                 }
                 Event::GetState(QR::Query(_)) => {
                     dst.push((self.ctrlid)(Event::GetState(QR::Response(self.checked))))

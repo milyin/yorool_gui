@@ -45,7 +45,7 @@ impl<'a, MSG> Ribbon<'a, MSG> {
 }
 
 impl<MSG> MessageHandler<MSG> for Ribbon<'_, MSG> {
-    fn handle(&mut self, src: &mut MessagePoolIn<MSG>, dst: &mut MessagePoolOut<MSG>) {
+    fn handle(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
         self.for_all(|w| w.handle(src, dst))
     }
 }

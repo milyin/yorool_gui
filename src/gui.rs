@@ -10,14 +10,14 @@ pub trait Layoutable {
 }
 
 pub trait Widget<MSG>: MessageHandler<MSG> + EventHandler + Layoutable {
-    fn as_message_handler(&mut self) -> &mut MessageHandler<MSG>;
+    fn as_message_handler(&mut self) -> &mut dyn MessageHandler<MSG>;
 }
 
 impl<W, MSG> Widget<MSG> for W
 where
     W: MessageHandler<MSG> + EventHandler + Layoutable,
 {
-    fn as_message_handler(&mut self) -> &mut MessageHandler<MSG> {
+    fn as_message_handler(&mut self) -> &mut dyn MessageHandler<MSG> {
         self
     }
 }

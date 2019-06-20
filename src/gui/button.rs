@@ -88,7 +88,7 @@ impl<MSG> MessageHandler<MSG> for Button<MSG>
 where
     MSG: Unpack<Event>,
 {
-    fn handle(&mut self, src: &mut MessagePoolIn<MSG>, dst: &mut MessagePoolOut<MSG>) {
+    fn handle(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
         for evt in query_by_ctrlid(src, self.ctrlid) {
             match evt {
                 Event::SetState(QR::Query(v)) => {

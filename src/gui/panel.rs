@@ -41,7 +41,7 @@ impl<'a, EXTMSG, INTMSG> MessageHandler<EXTMSG> for Panel<'a, EXTMSG, INTMSG>
 where
     INTMSG: Clone,
 {
-    fn handle(&mut self, _src: &mut MessagePoolIn<EXTMSG>, _dst: &mut MessagePoolOut<EXTMSG>) {}
+    fn handle(&mut self, _src: &mut dyn MessagePoolIn<EXTMSG>, _dst: &mut dyn MessagePoolOut<EXTMSG>) {}
 }
 
 impl<EXTMSG, INTMSG> EventHandler for Panel<'_, EXTMSG, INTMSG>

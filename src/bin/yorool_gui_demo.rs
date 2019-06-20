@@ -94,7 +94,7 @@ impl<MSG> MessageHandlerExecutor<MSG> for Radio<MSG>
 where
     MSG: Unpack<button::Event>,
 {
-    fn execute(&mut self, handler: &mut MessageHandler<MSG>, seed: &mut MessagePoolIn<MSG>) {
+    fn execute(&mut self, handler: &mut dyn MessageHandler<MSG>, seed: &mut dyn MessagePoolIn<MSG>) {
         for b in &self.buttons {
             for e in query_by_ctrlid(seed, *b) {
                 match e {
@@ -161,7 +161,7 @@ impl EventHandler for GuiDemoState<'_> {
     }
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cb = ContextBuilder::new("yorool_gui_demo", "milyin")
         .window_setup(WindowSetup::default().title("Yorool GUI demo"))
         .window_mode(WindowMode::default().resizable(true));

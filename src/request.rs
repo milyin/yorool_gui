@@ -52,25 +52,25 @@ pub trait Unpack<EVT: Default> {
 
 pub trait MessagePoolIn<MSG> {
     fn drain(&mut self) -> Vec<MSG>;
-    fn drain_filter(&mut self, f: &Fn(&MSG) -> bool) -> Vec<MSG>;
-    fn query(&self, f: &Fn(&MSG) -> bool) -> Vec<&MSG>;
+    fn drain_filter(&mut self, f: &dyn Fn(&MSG) -> bool) -> Vec<MSG>;
+    fn query(&self, f: &dyn Fn(&MSG) -> bool) -> Vec<&MSG>;
     fn is_empty(&self) -> bool;
     fn clear(&mut self);
 }
 
 pub trait MessagePoolOut<MSG> {
     fn push(&mut self, m: MSG);
-    fn append(&mut self, other: &mut MessagePoolIn<MSG>);
+    fn append(&mut self, other: &mut dyn MessagePoolIn<MSG>);
 }
 
 impl<MSG> MessagePoolIn<MSG> for Vec<MSG> {
     fn drain(&mut self) -> Vec<MSG> {
         self.split_off(0)
     }
-    fn drain_filter(&mut self, f: &Fn(&MSG) -> bool) -> Vec<MSG> {
+    fn drain_filter(&mut self, f: &dyn Fn(&MSG) -> bool) -> Vec<MSG> {
         self.drain_filter(|m| f(m)).collect()
     }
-    fn query(&self, f: &Fn(&MSG) -> bool) -> Vec<&MSG> {
+    fn query(&self, f: &dyn Fn(&MSG) -> bool) -> Vec<&MSG> {
         self.iter().filter(|m| f(m)).collect()
     }
     fn is_empty(&self) -> bool {
@@ -85,7 +85,7 @@ impl<MSG> MessagePoolOut<MSG> for Vec<MSG> {
     fn push(&mut self, m: MSG) {
         self.push(m)
     }
-    fn append(&mut self, other: &mut MessagePoolIn<MSG>) {
+    fn append(&mut self, other: &mut dyn MessagePoolIn<MSG>) {
         self.append(&mut other.drain())
     }
 }
@@ -94,15 +94,15 @@ pub trait MessagePool<MSG>: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
 impl<T, MSG> MessagePool<MSG> for T where T: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
 
 pub trait MessageHandler<MSG> {
-    fn handle(&mut self, from: &mut MessagePoolIn<MSG>, to: &mut MessagePoolOut<MSG>);
+    fn handle(&mut self, from: &mut dyn MessagePoolIn<MSG>, to: &mut dyn MessagePoolOut<MSG>);
 }
 
 pub trait MessageHandlerExecutor<MSG> {
-    fn execute(&mut self, handler: &mut MessageHandler<MSG>, seed: &mut MessagePoolIn<MSG>);
+    fn execute(&mut self, handler: &mut dyn MessageHandler<MSG>, seed: &mut dyn MessagePoolIn<MSG>);
 }
 
 pub fn query_by_ctrlid<EVT: Default, MSG: Unpack<EVT>>(
-    pool: &mut MessagePoolIn<MSG>,
+    pool: &mut dyn MessagePoolIn<MSG>,
     ctrl: CtrlId<MSG, EVT>,
 ) -> Vec<EVT> {
     let msgs = pool.drain_filter(&|msg: &MSG| msg.peek(ctrl).is_some());
@@ -249,7 +249,7 @@ where
         .await
     }
 
-    pub fn run<F: Future>(&self, handler: &mut MessageHandler<MSG>, f: F) -> F::Output {
+    pub fn run<F: Future>(&self, handler: &mut dyn MessageHandler<MSG>, f: F) -> F::Output {
         //pub fn run<EVT, R>(&self, f: MessageRouterFuture<MSG, POOL, EVT, R>)
         //where
         //    MSG: Unpack<EVT>,

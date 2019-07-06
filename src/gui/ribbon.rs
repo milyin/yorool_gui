@@ -1,6 +1,6 @@
 use crate::gui::Layoutable;
 use crate::gui::Widget;
-use crate::request::{MessageHandler, MessagePoolIn, MessagePoolOut};
+use crate::request::{MessagePoolIn, MessagePoolOut, MessageProcessor};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
@@ -44,9 +44,9 @@ impl<'a, MSG> Ribbon<'a, MSG> {
     }
 }
 
-impl<MSG> MessageHandler<MSG> for Ribbon<'_, MSG> {
-    fn handle(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
-        self.for_all(|w| w.handle(src, dst))
+impl<MSG> MessageProcessor<MSG> for Ribbon<'_, MSG> {
+    fn process(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
+        self.for_all(|w| w.process(src, dst))
     }
 }
 

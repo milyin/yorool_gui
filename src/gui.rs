@@ -1,23 +1,24 @@
 pub mod button;
+pub mod checkbox;
 pub mod panel;
 pub mod ribbon;
 
-use crate::request::MessageHandler;
+use crate::request::MessageProcessor;
 use ggez::event::EventHandler;
 
 pub trait Layoutable {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32);
 }
 
-pub trait Widget<MSG>: MessageHandler<MSG> + EventHandler + Layoutable {
-    fn as_message_handler(&mut self) -> &mut dyn MessageHandler<MSG>;
+pub trait Widget<MSG>: MessageProcessor<MSG> + EventHandler + Layoutable {
+    fn as_message_handler(&mut self) -> &mut dyn MessageProcessor<MSG>;
 }
 
 impl<W, MSG> Widget<MSG> for W
 where
-    W: MessageHandler<MSG> + EventHandler + Layoutable,
+    W: MessageProcessor<MSG> + EventHandler + Layoutable,
 {
-    fn as_message_handler(&mut self) -> &mut dyn MessageHandler<MSG> {
+    fn as_message_handler(&mut self) -> &mut dyn MessageProcessor<MSG> {
         self
     }
 }

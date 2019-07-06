@@ -93,12 +93,12 @@ impl<MSG> MessagePoolOut<MSG> for Vec<MSG> {
 pub trait MessagePool<MSG>: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
 impl<T, MSG> MessagePool<MSG> for T where T: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
 
-pub trait MessageHandler<MSG> {
-    fn handle(&mut self, from: &mut dyn MessagePoolIn<MSG>, to: &mut dyn MessagePoolOut<MSG>);
+pub trait MessageProcessor<MSG> {
+    fn process(&mut self, from: &mut dyn MessagePoolIn<MSG>, to: &mut dyn MessagePoolOut<MSG>);
 }
 
-pub trait MessageHandlerExecutor<MSG> {
-    fn execute(&mut self, handler: &mut dyn MessageHandler<MSG>, seed: &mut dyn MessagePoolIn<MSG>);
+pub trait MessageReactor<MSG> {
+    fn react(&mut self, handler: &mut dyn MessageProcessor<MSG>, seed: &mut dyn MessagePoolIn<MSG>);
 }
 
 pub fn query_by_ctrlid<EVT: Default, MSG: Unpack<EVT>>(
@@ -249,7 +249,7 @@ where
         .await
     }
 
-    pub fn run<F: Future>(&self, handler: &mut dyn MessageHandler<MSG>, f: F) -> F::Output {
+    pub fn run<F: Future>(&self, handler: &mut dyn MessageProcessor<MSG>, f: F) -> F::Output {
         //pub fn run<EVT, R>(&self, f: MessageRouterFuture<MSG, POOL, EVT, R>)
         //where
         //    MSG: Unpack<EVT>,
@@ -262,7 +262,7 @@ where
                 Poll::Pending => {
                     let mut src = self.pool.borrow_mut();
                     let mut dst = POOL::default();
-                    handler.handle(&mut *src, &mut dst);
+                    handler.process(&mut *src, &mut dst);
                     src.clear();
                     src.append(&mut dst);
                 }

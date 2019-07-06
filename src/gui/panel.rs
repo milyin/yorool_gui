@@ -1,5 +1,5 @@
 use crate::gui::{Layoutable, Widget};
-use crate::request::{MessageHandler, MessageHandlerExecutor, MessagePoolIn, MessagePoolOut};
+use crate::request::{MessagePoolIn, MessagePoolOut, MessageProcessor, MessageReactor};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 
@@ -7,7 +7,7 @@ pub type Event = ();
 
 pub struct Panel<'a, EXTMSG, INTMSG> {
     widget: Box<dyn Widget<INTMSG> + 'a>,
-    handlers: Vec<Box<dyn MessageHandlerExecutor<INTMSG> + 'a>>,
+    handlers: Vec<Box<dyn MessageReactor<INTMSG> + 'a>>,
     phantom: std::marker::PhantomData<EXTMSG>,
 }
 
@@ -22,26 +22,31 @@ where
             phantom: std::marker::PhantomData,
         }
     }
-    pub fn add_handler<H: MessageHandlerExecutor<INTMSG> + 'a>(mut self, handler: H) -> Self {
+    pub fn add_handler<H: MessageReactor<INTMSG> + 'a>(mut self, handler: H) -> Self {
         self.handlers.push(box handler);
         self
     }
     pub fn run_handlers(&mut self) {
         // collect notifications
         let mut notifications = Vec::new();
-        self.widget.handle(&mut Vec::new(), &mut notifications);
+        self.widget.process(&mut Vec::new(), &mut notifications);
         // handle notifications by registered handlers
         for h in &mut self.handlers {
-            h.execute(self.widget.as_message_handler(), &mut notifications.clone());
+            h.react(self.widget.as_message_handler(), &mut notifications.clone());
         }
     }
 }
 
-impl<'a, EXTMSG, INTMSG> MessageHandler<EXTMSG> for Panel<'a, EXTMSG, INTMSG>
+impl<'a, EXTMSG, INTMSG> MessageProcessor<EXTMSG> for Panel<'a, EXTMSG, INTMSG>
 where
     INTMSG: Clone,
 {
-    fn handle(&mut self, _src: &mut dyn MessagePoolIn<EXTMSG>, _dst: &mut dyn MessagePoolOut<EXTMSG>) {}
+    fn process(
+        &mut self,
+        _src: &mut dyn MessagePoolIn<EXTMSG>,
+        _dst: &mut dyn MessagePoolOut<EXTMSG>,
+    ) {
+    }
 }
 
 impl<EXTMSG, INTMSG> EventHandler for Panel<'_, EXTMSG, INTMSG>

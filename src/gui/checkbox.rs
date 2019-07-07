@@ -6,10 +6,12 @@ use crate::request::{
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub enum Event {
     None,
+    Init,
     Pressed,
     SetState(QR<bool, ()>),
     GetState(QR<(), bool>),
@@ -67,7 +69,7 @@ impl Default for Event {
 pub struct Checkbox<MSG> {
     state: bool,
     touched: bool,
-    pressed: bool,
+    notifications: Vec<MSG>,
     rect: Rect,
     ctrlid: CtrlId<MSG, Event>,
 }
@@ -77,7 +79,7 @@ impl<MSG> Checkbox<MSG> {
         Self {
             state: false,
             touched: false,
-            pressed: false,
+            notifications: vec![ctrlid(Event::Init)].into_iter().collect(),
             rect: Rect::zero(),
             ctrlid,
         }
@@ -101,10 +103,7 @@ where
                 _ => {}
             }
         }
-        if self.pressed {
-            self.pressed = false;
-            dst.push((self.ctrlid)(Event::Pressed))
-        }
+        dst.append(&mut self.notifications);
     }
 }
 
@@ -144,7 +143,7 @@ impl<MSG> EventHandler for Checkbox<MSG> {
         if self.touched && self.rect.contains([x, y]) {
             self.state = !self.state;
             self.touched = false;
-            self.pressed = true;
+            self.notifications.push((self.ctrlid)(Event::Pressed));
         } else {
             self.touched = false;
         }

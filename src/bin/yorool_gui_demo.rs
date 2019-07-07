@@ -1,4 +1,5 @@
 #![feature(async_await)]
+#![feature(async_closure)]
 extern crate yorool_gui;
 
 use ggez::conf::{WindowMode, WindowSetup};
@@ -84,15 +85,25 @@ where
         self.buttons.push(ctrl);
         self
     }
-    async fn init<'a>(
+    async fn on_init<'a>(
         &'a self,
         router: &'a MessageRouterAsync<MSG>,
-        default: CtrlId<MSG, checkbox::Event>,
+        checkbox: CtrlId<MSG, checkbox::Event>,
     ) {
-        for b in &self.buttons {
-            router.query(*b, checkbox::Event::SetState, false).await;
+        if let Some(first) = self.buttons.first() {
+            dbg!(format!("{:p}", first), format!("{:p}", checkbox));
+            router
+                .query(
+                    checkbox,
+                    checkbox::Event::SetState,
+                    first as *const _ == checkbox as *const _,
+                )
+                .await;
+            return;
         }
-        router.query(default, checkbox::Event::SetState, true).await;
+        router
+            .query(checkbox, checkbox::Event::SetState, false)
+            .await;
     }
     async fn on_change<'a>(
         &'a self,
@@ -121,9 +132,12 @@ where
     ) {
         for b in &self.buttons {
             for e in query_by_ctrlid(seed, *b) {
+                let router = MessageRouterAsync::new(Vec::new());
                 match e {
+                    checkbox::Event::Init => {
+                        router.run(handler, self.on_init(&router, *b));
+                    }
                     checkbox::Event::Pressed => {
-                        let router = MessageRouterAsync::new(Vec::new());
                         router.run(handler, self.on_change(&router, *b));
                     }
                     _ => {}
@@ -134,7 +148,7 @@ where
 }
 
 struct GuiDemoState<'a> {
-    panel: Panel<'a, (), GridMsg>,
+    panel: Panel<'a, GridMsg>,
 }
 
 impl GuiDemoState<'_> {
@@ -152,9 +166,8 @@ impl GuiDemoState<'_> {
             )
             .add_widget(Button::new(GridMsg::Button));
 
-        let router = MessageRouterAsync::new(Vec::new());
-        router.run(&mut grid, radio.init(&router, GridMsg::RadioA));
-        let panel = Panel::new(grid).add_handler(radio);
+        let mut panel = Panel::new(grid).add_handler(radio);
+
         Ok(Self { panel })
     }
 }

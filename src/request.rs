@@ -94,7 +94,7 @@ pub trait MessagePool<MSG>: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
 impl<T, MSG> MessagePool<MSG> for T where T: MessagePoolIn<MSG> + MessagePoolOut<MSG> {}
 
 pub trait MessageProcessor<MSG> {
-    fn process(&mut self, from: &mut dyn MessagePoolIn<MSG>, to: &mut dyn MessagePoolOut<MSG>);
+    fn process(&mut self, from: &mut dyn MessagePoolIn<MSG>, to: &mut dyn MessagePoolOut<MSG>) {}
 }
 
 pub trait MessageReactor<MSG> {

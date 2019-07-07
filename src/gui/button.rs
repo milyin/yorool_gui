@@ -10,6 +10,7 @@ use ggez::{Context, GameResult};
 #[derive(Debug, Clone)]
 pub enum Event {
     None,
+    Init,
     Pressed,
 }
 

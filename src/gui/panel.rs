@@ -5,24 +5,24 @@ use ggez::{Context, GameResult};
 
 pub type Event = ();
 
-pub struct Panel<'a, EXTMSG, INTMSG> {
-    widget: Box<dyn Widget<INTMSG> + 'a>,
-    handlers: Vec<Box<dyn MessageReactor<INTMSG> + 'a>>,
-    phantom: std::marker::PhantomData<EXTMSG>,
+pub struct Panel<'a, MSG> {
+    widget: Box<dyn Widget<MSG> + 'a>,
+    handlers: Vec<Box<dyn MessageReactor<MSG> + 'a>>,
+    //    phantom: std::marker::PhantomData<MSG>,
 }
 
-impl<'a, EXTMSG, INTMSG> Panel<'a, EXTMSG, INTMSG>
+impl<'a, MSG> Panel<'a, MSG>
 where
-    INTMSG: Clone,
+    MSG: Clone,
 {
-    pub fn new<W: Widget<INTMSG> + 'a>(w: W) -> Self {
+    pub fn new<W: Widget<MSG> + 'a>(w: W) -> Self {
         Self {
             widget: box w,
             handlers: Vec::new(),
-            phantom: std::marker::PhantomData,
+            //           phantom: std::marker::PhantomData,
         }
     }
-    pub fn add_handler<H: MessageReactor<INTMSG> + 'a>(mut self, handler: H) -> Self {
+    pub fn add_handler<H: MessageReactor<MSG> + 'a>(mut self, handler: H) -> Self {
         self.handlers.push(box handler);
         self
     }
@@ -37,21 +37,11 @@ where
     }
 }
 
-impl<'a, EXTMSG, INTMSG> MessageProcessor<EXTMSG> for Panel<'a, EXTMSG, INTMSG>
-where
-    INTMSG: Clone,
-{
-    fn process(
-        &mut self,
-        _src: &mut dyn MessagePoolIn<EXTMSG>,
-        _dst: &mut dyn MessagePoolOut<EXTMSG>,
-    ) {
-    }
-}
+impl<'a, MSG> MessageProcessor<MSG> for Panel<'a, MSG> {}
 
-impl<EXTMSG, INTMSG> EventHandler for Panel<'_, EXTMSG, INTMSG>
+impl<MSG> EventHandler for Panel<'_, MSG>
 where
-    INTMSG: Clone,
+    MSG: Clone,
 {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         self.run_handlers();
@@ -71,7 +61,7 @@ where
     }
 }
 
-impl<EXTMSG, INTMSG> Layoutable for Panel<'_, EXTMSG, INTMSG> {
+impl<MSG> Layoutable for Panel<'_, MSG> {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.widget.set_rect(x, y, w, h)
     }

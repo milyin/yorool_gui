@@ -41,13 +41,45 @@ pub trait EvtUnpack<Q: Clone, R: Default + Clone> {
     fn peek_response(&self, ctrl: EvtId<Self, Q, R>) -> Option<&R>;
 }
 
-pub type CtrlId<MSG, EVT> = fn(EVT) -> MSG;
+pub struct CtrlId<MSG, EVT>(fn(EVT) -> MSG);
+
+impl<MSG, EVT> Copy for CtrlId<MSG, EVT> {}
+
+impl<MSG, EVT> Clone for CtrlId<MSG, EVT> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<MSG, EVT> From<fn(EVT) -> MSG> for CtrlId<MSG, EVT> {
+    fn from(f: fn(EVT) -> MSG) -> Self {
+        Self(f)
+    }
+}
+
+impl<MSG, EVT> CtrlId<MSG, EVT> {
+    pub fn tomsg(&self, evt: EVT) -> MSG {
+        (self.0)(evt)
+    }
+}
+
+impl<MSG, EVT> PartialEq for CtrlId<MSG, EVT>
+where
+    MSG: Unpack<EVT>,
+    EVT: Default,
+{
+    fn eq(&self, other: &Self) -> bool {
+        return self.tomsg(EVT::default()).peek(*other).is_some();
+    }
+}
 
 pub trait Unpack<EVT: Default> {
-    fn unpack(self, ctrl: CtrlId<Self, EVT>) -> Result<EVT, Self>
+    fn unpack(self, ctrlid: CtrlId<Self, EVT>) -> Result<EVT, Self>
     where
         Self: Sized;
-    fn peek(&self, ctrl: CtrlId<Self, EVT>) -> Option<&EVT>;
+    fn peek(&self, ctrlid: CtrlId<Self, EVT>) -> Option<&EVT>
+    where
+        Self: Sized;
 }
 
 pub trait MessagePoolIn<MSG> {
@@ -239,7 +271,7 @@ where
             if let Some(r) = get_response(&mut *pool, ctrlid, evtid) {
                 return r;
             }
-            pool.push(ctrlid(evtid(QR::Query(param))));
+            pool.push(ctrlid.tomsg(evtid(QR::Query(param))));
         }
         MessageRouterFuture {
             pool: self.pool.clone(),

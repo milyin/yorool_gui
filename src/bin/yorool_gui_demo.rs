@@ -29,8 +29,8 @@ enum GridMsg {
 // TODO: autogenerate it with macro when stabilized
 //
 impl Unpack<checkbox::Event> for GridMsg {
-    fn peek(&self, f: fn(checkbox::Event) -> Self) -> Option<&checkbox::Event> {
-        let test = f(checkbox::Event::default());
+    fn peek(&self, ctrlid: CtrlId<Self, checkbox::Event>) -> Option<&checkbox::Event> {
+        let test = ctrlid.tomsg(checkbox::Event::default());
         match (self, test) {
             (GridMsg::RadioA(ref e), GridMsg::RadioA(_)) => Some(e),
             (GridMsg::RadioB(ref e), GridMsg::RadioB(_)) => Some(e),
@@ -39,8 +39,8 @@ impl Unpack<checkbox::Event> for GridMsg {
         }
     }
 
-    fn unpack(self, f: fn(checkbox::Event) -> Self) -> Result<checkbox::Event, Self> {
-        let test = f(checkbox::Event::default());
+    fn unpack(self, ctrlid: CtrlId<Self, checkbox::Event>) -> Result<checkbox::Event, Self> {
+        let test = ctrlid.tomsg(checkbox::Event::default());
         match (self, test) {
             (GridMsg::RadioA(e), GridMsg::RadioA(_)) => Ok(e),
             (GridMsg::RadioB(e), GridMsg::RadioB(_)) => Ok(e),
@@ -51,16 +51,16 @@ impl Unpack<checkbox::Event> for GridMsg {
 }
 
 impl Unpack<button::Event> for GridMsg {
-    fn peek(&self, f: fn(button::Event) -> Self) -> Option<&button::Event> {
-        let test = f(button::Event::default());
+    fn peek(&self, ctrlid: CtrlId<Self, button::Event>) -> Option<&button::Event> {
+        let test = ctrlid.tomsg(button::Event::default());
         match (self, test) {
             (GridMsg::Button(ref e), GridMsg::Button(_)) => Some(e),
             _ => None,
         }
     }
 
-    fn unpack(self, f: fn(button::Event) -> Self) -> Result<button::Event, Self> {
-        let test = f(button::Event::default());
+    fn unpack(self, ctrlid: CtrlId<Self, button::Event>) -> Result<button::Event, Self> {
+        let test = ctrlid.tomsg(button::Event::default());
         match (self, test) {
             (GridMsg::Button(e), GridMsg::Button(_)) => Ok(e),
             (m, _) => Err(m),
@@ -81,8 +81,8 @@ where
             buttons: Vec::new(),
         }
     }
-    fn add(mut self, ctrl: CtrlId<MSG, checkbox::Event>) -> Self {
-        self.buttons.push(ctrl);
+    fn add(mut self, ctrl: fn(checkbox::Event) -> MSG) -> Self {
+        self.buttons.push(ctrl.into());
         self
     }
     async fn on_init<'a>(
@@ -91,13 +91,8 @@ where
         checkbox: CtrlId<MSG, checkbox::Event>,
     ) {
         if let Some(first) = self.buttons.first() {
-            dbg!(format!("{:p}", first), format!("{:p}", checkbox));
             router
-                .query(
-                    checkbox,
-                    checkbox::Event::SetState,
-                    first as *const _ == checkbox as *const _,
-                )
+                .query(checkbox, checkbox::Event::SetState, *first == checkbox)
                 .await;
             return;
         }
@@ -157,7 +152,7 @@ impl GuiDemoState<'_> {
             .add(GridMsg::RadioA)
             .add(GridMsg::RadioB)
             .add(GridMsg::RadioC);
-        let mut grid = Ribbon::new(false)
+        let grid = Ribbon::new(false)
             .add_widget(
                 Ribbon::new(true)
                     .add_widget(Checkbox::new(GridMsg::RadioA))
@@ -166,7 +161,7 @@ impl GuiDemoState<'_> {
             )
             .add_widget(Button::new(GridMsg::Button));
 
-        let mut panel = Panel::new(grid).add_handler(radio);
+        let panel = Panel::new(grid).add_handler(radio);
 
         Ok(Self { panel })
     }

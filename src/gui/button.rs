@@ -28,12 +28,12 @@ pub struct Button<MSG> {
 }
 
 impl<MSG> Button<MSG> {
-    pub fn new(ctrlid: CtrlId<MSG, Event>) -> Self {
+    pub fn new(ctrl: fn(Event) -> MSG) -> Self {
         Self {
             touched: false,
             pressed: false,
             rect: Rect::zero(),
-            ctrlid,
+            ctrlid: ctrl.into(),
         }
     }
 }
@@ -45,7 +45,7 @@ where
     fn process(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
         if self.pressed {
             self.pressed = false;
-            dst.push((self.ctrlid)(Event::Pressed))
+            dst.push(self.ctrlid.tomsg(Event::Pressed))
         }
     }
 }

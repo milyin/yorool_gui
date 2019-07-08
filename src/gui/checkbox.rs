@@ -75,13 +75,13 @@ pub struct Checkbox<MSG> {
 }
 
 impl<MSG> Checkbox<MSG> {
-    pub fn new(ctrlid: CtrlId<MSG, Event>) -> Self {
+    pub fn new(ctrl: fn(Event) -> MSG) -> Self {
         Self {
             state: false,
             touched: false,
-            notifications: vec![ctrlid(Event::Init)].into_iter().collect(),
+            notifications: vec![ctrl(Event::Init)],
             rect: Rect::zero(),
-            ctrlid,
+            ctrlid: ctrl.into(),
         }
     }
 }
@@ -95,10 +95,10 @@ where
             match evt {
                 Event::SetState(QR::Query(v)) => {
                     self.state = v;
-                    dst.push((self.ctrlid)(Event::SetState(QR::Response(()))))
+                    dst.push(self.ctrlid.tomsg(Event::SetState(QR::Response(()))))
                 }
                 Event::GetState(QR::Query(_)) => {
-                    dst.push((self.ctrlid)(Event::GetState(QR::Response(self.state))))
+                    dst.push(self.ctrlid.tomsg(Event::GetState(QR::Response(self.state))))
                 }
                 _ => {}
             }
@@ -143,7 +143,7 @@ impl<MSG> EventHandler for Checkbox<MSG> {
         if self.touched && self.rect.contains([x, y]) {
             self.state = !self.state;
             self.touched = false;
-            self.notifications.push((self.ctrlid)(Event::Pressed));
+            self.notifications.push(self.ctrlid.tomsg(Event::Pressed));
         } else {
             self.touched = false;
         }

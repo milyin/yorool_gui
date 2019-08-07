@@ -1,5 +1,5 @@
 use crate::gui::{Layoutable, Widget};
-use crate::request::{MessagePoolIn, MessagePoolOut, MessageProcessor, MessageReactor};
+use crate::request::MessageSender;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
 
@@ -7,7 +7,6 @@ pub type Event = ();
 
 pub struct Panel<'a, MSG> {
     widget: Box<dyn Widget<MSG> + 'a>,
-    handlers: Vec<Box<dyn MessageReactor<MSG> + 'a>>,
     //    phantom: std::marker::PhantomData<MSG>,
 }
 
@@ -18,33 +17,22 @@ where
     pub fn new<W: Widget<MSG> + 'a>(w: W) -> Self {
         Self {
             widget: box w,
-            handlers: Vec::new(),
             //           phantom: std::marker::PhantomData,
-        }
-    }
-    pub fn add_handler<H: MessageReactor<MSG> + 'a>(mut self, handler: H) -> Self {
-        self.handlers.push(box handler);
-        self
-    }
-    pub fn run_handlers(&mut self) {
-        // collect notifications
-        let mut notifications = Vec::new();
-        self.widget.process(&mut Vec::new(), &mut notifications);
-        // handle notifications by registered handlers
-        for h in &mut self.handlers {
-            h.react(self.widget.as_message_handler(), &mut notifications.clone());
         }
     }
 }
 
-impl<'a, MSG> MessageProcessor<MSG> for Panel<'a, MSG> {}
+impl<'a, MSG> MessageSender<MSG> for Panel<'a, MSG> {
+    fn get_message(&mut self) -> Option<MSG> {
+        self.widget.get_message()
+    }
+}
 
 impl<MSG> EventHandler for Panel<'_, MSG>
 where
     MSG: Clone,
 {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        self.run_handlers();
         self.widget.update(ctx)
     }
 

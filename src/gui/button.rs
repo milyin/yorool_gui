@@ -1,7 +1,5 @@
 use crate::gui::Layoutable;
-use crate::request::{
-    query_by_ctrlid, CtrlId, MessagePoolIn, MessagePoolOut, MessageProcessor, Unpack, QR,
-};
+use crate::request::{CtrlId, MessageSender, Unpack};
 use ggez::event::EventHandler;
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::input::mouse::MouseButton;
@@ -38,14 +36,16 @@ impl<MSG> Button<MSG> {
     }
 }
 
-impl<MSG> MessageProcessor<MSG> for Button<MSG>
+impl<MSG> MessageSender<MSG> for Button<MSG>
 where
     MSG: Unpack<Event>,
 {
-    fn process(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
+    fn get_message(&mut self) -> Option<MSG> {
         if self.pressed {
             self.pressed = false;
-            dst.push(self.ctrlid.tomsg(Event::Pressed))
+            Some(self.ctrlid.tomsg(Event::Pressed))
+        } else {
+            None
         }
     }
 }

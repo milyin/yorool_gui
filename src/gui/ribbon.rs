@@ -1,6 +1,6 @@
 use crate::gui::Layoutable;
 use crate::gui::Widget;
-use crate::request::{MessagePoolIn, MessagePoolOut, MessageProcessor};
+use crate::request::MessageSender;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
@@ -42,11 +42,23 @@ impl<'a, MSG> Ribbon<'a, MSG> {
             f(w)
         }
     }
+
+    fn for_first<RES, F: FnMut(&mut Box<dyn Widget<MSG> + 'a>) -> Option<RES>>(
+        &mut self,
+        mut f: F,
+    ) -> Option<RES> {
+        for w in &mut self.widgets {
+            if let Some(res) = f(w) {
+                return Some(res);
+            }
+        }
+        None
+    }
 }
 
-impl<MSG> MessageProcessor<MSG> for Ribbon<'_, MSG> {
-    fn process(&mut self, src: &mut dyn MessagePoolIn<MSG>, dst: &mut dyn MessagePoolOut<MSG>) {
-        self.for_all(|w| w.process(src, dst))
+impl<MSG> MessageSender<MSG> for Ribbon<'_, MSG> {
+    fn get_message(&mut self) -> Option<MSG> {
+        self.for_first(|w| w.get_message())
     }
 }
 

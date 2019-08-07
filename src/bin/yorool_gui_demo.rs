@@ -12,10 +12,7 @@ use yorool_gui::gui::checkbox::Checkbox;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
 use yorool_gui::gui::{button, checkbox, Layoutable};
-use yorool_gui::request::{
-    query_by_ctrlid, CtrlId, MessagePoolIn, MessageProcessor, MessageReactor, MessageRouterAsync,
-    Unpack,
-};
+use yorool_gui::request::{CtrlId, Unpack};
 
 #[derive(Debug, Clone)]
 enum GridMsg {
@@ -68,90 +65,12 @@ impl Unpack<button::Event> for GridMsg {
     }
 }
 
-struct Radio<MSG> {
-    buttons: Vec<CtrlId<MSG, checkbox::Event>>,
-}
-
-impl<MSG> Radio<MSG>
-where
-    MSG: Unpack<checkbox::Event>,
-{
-    fn new() -> Self {
-        Self {
-            buttons: Vec::new(),
-        }
-    }
-    fn add(mut self, ctrl: fn(checkbox::Event) -> MSG) -> Self {
-        self.buttons.push(ctrl.into());
-        self
-    }
-    async fn on_init<'a>(
-        &'a self,
-        router: &'a MessageRouterAsync<MSG>,
-        checkbox: CtrlId<MSG, checkbox::Event>,
-    ) {
-        if let Some(first) = self.buttons.first() {
-            router
-                .query(checkbox, checkbox::Event::SetState, *first == checkbox)
-                .await;
-            return;
-        }
-        router
-            .query(checkbox, checkbox::Event::SetState, false)
-            .await;
-    }
-    async fn on_change<'a>(
-        &'a self,
-        router: &'a MessageRouterAsync<MSG>,
-        changed: CtrlId<MSG, checkbox::Event>,
-    ) {
-        if router.query(changed, checkbox::Event::GetState, ()).await {
-            for b in &self.buttons {
-                router.query(*b, checkbox::Event::SetState, false).await;
-            }
-            router.query(changed, checkbox::Event::SetState, true).await;
-        } else {
-            router.query(changed, checkbox::Event::SetState, true).await;
-        }
-    }
-}
-
-impl<MSG> MessageReactor<MSG> for Radio<MSG>
-where
-    MSG: Unpack<checkbox::Event>,
-{
-    fn react(
-        &mut self,
-        handler: &mut dyn MessageProcessor<MSG>,
-        seed: &mut dyn MessagePoolIn<MSG>,
-    ) {
-        for b in &self.buttons {
-            for e in query_by_ctrlid(seed, *b) {
-                let router = MessageRouterAsync::new(Vec::new());
-                match e {
-                    checkbox::Event::Init => {
-                        router.run(handler, self.on_init(&router, *b));
-                    }
-                    checkbox::Event::Pressed => {
-                        router.run(handler, self.on_change(&router, *b));
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-}
-
 struct GuiDemoState<'a> {
     panel: Panel<'a, GridMsg>,
 }
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        let radio = Radio::new()
-            .add(GridMsg::RadioA)
-            .add(GridMsg::RadioB)
-            .add(GridMsg::RadioC);
         let grid = Ribbon::new(false)
             .add_widget(
                 Ribbon::new(true)
@@ -161,7 +80,7 @@ impl GuiDemoState<'_> {
             )
             .add_widget(Button::new(GridMsg::Button));
 
-        let panel = Panel::new(grid).add_handler(radio);
+        let panel = Panel::new(grid);
 
         Ok(Self { panel })
     }

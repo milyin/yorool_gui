@@ -1,5 +1,3 @@
-#![feature(async_await)]
-#![feature(async_closure)]
 extern crate yorool_gui;
 
 use ggez::conf::{WindowMode, WindowSetup};
@@ -13,7 +11,7 @@ use yorool_gui::gui::button::Button;
 use yorool_gui::gui::checkbox::Checkbox;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::gui::{button, checkbox, Layoutable};
+use yorool_gui::gui::{button, checkbox, Executable, Layoutable};
 use yorool_gui::request::{CtrlId, Unpack};
 
 #[derive(Debug, Clone)]
@@ -71,11 +69,39 @@ struct GuiDemoState<'a> {
     panel: Panel<'a, GridMsg>,
 }
 
+fn make_radio<'a, MSG: 'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a, MSG>>>>) {
+    for n in 0..checkboxes.len() {
+        let (head, curr_tail) = checkboxes.split_at(n);
+        let (curr, tail) = curr_tail.split_first().unwrap();
+        let handler = {
+            let curr = curr.clone();
+            let others = head
+                .iter()
+                .chain(tail.iter())
+                .map(|v| v.clone())
+                .collect::<Vec<_>>();
+            move || {
+                let mut curr = curr.borrow_mut();
+                if curr.get_state() {
+                    for w in &others {
+                        w.borrow_mut().set_state(false);
+                    }
+                } else {
+                    curr.set_state(true);
+                }
+            }
+        };
+        curr.borrow_mut().on_changed(handler);
+    }
+}
+
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
         let radio_a = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioA)));
         let radio_b = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioB)));
         let radio_c = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioC)));
+
+        make_radio(vec![radio_a.clone(), radio_b.clone(), radio_c.clone()]);
 
         let grid = Ribbon::new(false)
             .add_widget(
@@ -94,6 +120,10 @@ impl GuiDemoState<'_> {
 
 impl EventHandler for GuiDemoState<'_> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+        for e in self.panel.to_execute() {
+            (*e)()
+        }
+
         self.panel.update(ctx)?;
         let (w, h) = graphics::drawable_size(ctx);
         self.panel.set_rect(0., 0., w, h);

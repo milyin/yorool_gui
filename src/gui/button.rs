@@ -1,9 +1,10 @@
-use crate::gui::Layoutable;
+use crate::gui::{Executable, Layoutable};
 use crate::request::{CtrlId, MessageSender, Unpack};
 use ggez::event::EventHandler;
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::input::mouse::MouseButton;
 use ggez::{Context, GameResult};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -92,5 +93,11 @@ impl<MSG> Layoutable for Button<MSG> {
         self.rect.y = y;
         self.rect.w = w;
         self.rect.h = h;
+    }
+}
+
+impl<'a, MSG> Executable<'a> for Button<MSG> {
+    fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+        Vec::new()
     }
 }

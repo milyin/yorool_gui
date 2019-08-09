@@ -1,12 +1,13 @@
-use crate::gui::{Layoutable, Widget};
+use crate::gui::{Executable, Layoutable, Widget};
 use crate::request::MessageSender;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::{Context, GameResult};
+use std::rc::Rc;
 
 pub type Event = ();
 
 pub struct Panel<'a, MSG> {
-    widget: Box<dyn Widget<MSG> + 'a>,
+    widget: Box<dyn Widget<'a, MSG> + 'a>,
     //    phantom: std::marker::PhantomData<MSG>,
 }
 
@@ -14,9 +15,9 @@ impl<'a, MSG> Panel<'a, MSG>
 where
     MSG: Clone,
 {
-    pub fn new<W: Widget<MSG> + 'a>(w: W) -> Self {
+    pub fn new<W: Widget<'a, MSG> + 'a>(w: W) -> Self {
         Self {
-            widget: box w,
+            widget: Box::new(w),
             //           phantom: std::marker::PhantomData,
         }
     }
@@ -52,5 +53,11 @@ where
 impl<MSG> Layoutable for Panel<'_, MSG> {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.widget.set_rect(x, y, w, h)
+    }
+}
+
+impl<'a, MSG> Executable<'a> for Panel<'a, MSG> {
+    fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+        self.widget.to_execute()
     }
 }

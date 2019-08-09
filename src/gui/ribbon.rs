@@ -1,5 +1,5 @@
-use crate::gui::Layoutable;
 use crate::gui::Widget;
+use crate::gui::{Executable, Layoutable};
 use crate::request::MessageSender;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
@@ -10,7 +10,7 @@ use std::rc::Rc;
 pub type Event = ();
 
 pub struct Ribbon<'a, MSG> {
-    widgets: Vec<Rc<RefCell<dyn Widget<MSG> + 'a>>>,
+    widgets: Vec<Rc<RefCell<dyn Widget<'a, MSG> + 'a>>>,
     rect: Rect,
     horizontal: bool,
 }
@@ -24,17 +24,17 @@ impl<'a, MSG> Ribbon<'a, MSG> {
         }
     }
 
-    pub fn add_widget(mut self, widget: impl Widget<MSG> + 'a) -> Self {
+    pub fn add_widget(mut self, widget: impl Widget<'a, MSG> + 'a) -> Self {
         self.widgets.push(Rc::new(RefCell::new(widget)));
         self
     }
 
-    pub fn add_widget_rc(mut self, widget: Rc<RefCell<impl Widget<MSG> + 'a>>) -> Self {
+    pub fn add_widget_rc(mut self, widget: Rc<RefCell<impl Widget<'a, MSG> + 'a>>) -> Self {
         self.widgets.push(widget.clone());
         self
     }
 
-    fn for_all_res<F: FnMut(Rc<RefCell<dyn Widget<MSG> + 'a>>) -> GameResult>(
+    fn for_all_res<F: FnMut(Rc<RefCell<dyn Widget<'a, MSG> + 'a>>) -> GameResult>(
         &self,
         mut f: F,
     ) -> GameResult {
@@ -108,5 +108,15 @@ impl<MSG> Layoutable for Ribbon<'_, MSG> {
                 y += dh;
             });
         }
+    }
+}
+
+impl<'a, MSG> Executable<'a> for Ribbon<'a, MSG> {
+    fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+        let mut v = Vec::new();
+        for w in &mut self.widgets {
+            v.append(&mut w.borrow_mut().to_execute());
+        }
+        v
     }
 }

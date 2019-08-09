@@ -3,7 +3,6 @@ use crate::request::{CtrlId, MessageSender, Unpack};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
-use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub enum Event {

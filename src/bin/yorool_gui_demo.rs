@@ -7,6 +7,8 @@ use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color};
 use ggez::{Context, ContextBuilder, GameResult};
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::checkbox::Checkbox;
 use yorool_gui::gui::panel::Panel;
@@ -71,12 +73,16 @@ struct GuiDemoState<'a> {
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
+        let radio_a = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioA)));
+        let radio_b = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioB)));
+        let radio_c = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioC)));
+
         let grid = Ribbon::new(false)
             .add_widget(
                 Ribbon::new(true)
-                    .add_widget(Checkbox::new(GridMsg::RadioA))
-                    .add_widget(Checkbox::new(GridMsg::RadioB))
-                    .add_widget(Checkbox::new(GridMsg::RadioC)),
+                    .add_widget_rc(radio_a)
+                    .add_widget_rc(radio_b)
+                    .add_widget_rc(radio_c),
             )
             .add_widget(Button::new(GridMsg::Button));
 

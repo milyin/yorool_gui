@@ -1,11 +1,3 @@
-use std::cell::RefCell;
-use std::future::Future;
-use std::pin::Pin;
-use std::rc::Rc;
-use std::task::Poll;
-use std::task::RawWakerVTable;
-use std::task::{Context, RawWaker, Waker};
-
 pub struct CtrlId<MSG, EVT>(fn(EVT) -> MSG);
 
 impl<MSG, EVT> Copy for CtrlId<MSG, EVT> {}

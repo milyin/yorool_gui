@@ -5,7 +5,6 @@ pub mod ribbon;
 
 use crate::request::MessageSender;
 use ggez::event::EventHandler;
-use std::future::Future;
 
 pub trait Layoutable {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32);

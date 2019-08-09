@@ -4,11 +4,13 @@ use crate::request::MessageSender;
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub type Event = ();
 
 pub struct Ribbon<'a, MSG> {
-    widgets: Vec<Box<dyn Widget<MSG> + 'a>>,
+    widgets: Vec<Rc<RefCell<dyn Widget<MSG> + 'a>>>,
     rect: Rect,
     horizontal: bool,
 }
@@ -23,32 +25,37 @@ impl<'a, MSG> Ribbon<'a, MSG> {
     }
 
     pub fn add_widget(mut self, widget: impl Widget<MSG> + 'a) -> Self {
-        self.widgets.push(Box::new(widget));
+        self.widgets.push(Rc::new(RefCell::new(widget)));
         self
     }
 
-    fn for_all_res<F: FnMut(&mut Box<dyn Widget<MSG> + 'a>) -> GameResult>(
-        &mut self,
+    pub fn add_widget_rc(mut self, widget: Rc<RefCell<impl Widget<MSG> + 'a>>) -> Self {
+        self.widgets.push(widget.clone());
+        self
+    }
+
+    fn for_all_res<F: FnMut(Rc<RefCell<dyn Widget<MSG> + 'a>>) -> GameResult>(
+        &self,
         mut f: F,
     ) -> GameResult {
-        for w in &mut self.widgets {
-            f(w)?
+        for w in &self.widgets {
+            f(w.clone())?
         }
         Ok(())
     }
 
-    fn for_all<F: FnMut(&mut Box<dyn Widget<MSG> + 'a>)>(&mut self, mut f: F) {
-        for w in &mut self.widgets {
-            f(w)
+    fn for_all<F: FnMut(Rc<RefCell<dyn Widget<MSG> + 'a>>)>(&self, mut f: F) {
+        for w in &self.widgets {
+            f(w.clone())
         }
     }
 
-    fn for_first<RES, F: FnMut(&mut Box<dyn Widget<MSG> + 'a>) -> Option<RES>>(
-        &mut self,
+    fn for_first<RES, F: FnMut(Rc<RefCell<dyn Widget<MSG> + 'a>>) -> Option<RES>>(
+        &self,
         mut f: F,
     ) -> Option<RES> {
-        for w in &mut self.widgets {
-            if let Some(res) = f(w) {
+        for w in &self.widgets {
+            if let Some(res) = f(w.clone()) {
                 return Some(res);
             }
         }
@@ -58,25 +65,25 @@ impl<'a, MSG> Ribbon<'a, MSG> {
 
 impl<MSG> MessageSender<MSG> for Ribbon<'_, MSG> {
     fn get_message(&mut self) -> Option<MSG> {
-        self.for_first(|w| w.get_message())
+        self.for_first(|w| w.borrow_mut().get_message())
     }
 }
 
-impl<'a, MSG> EventHandler for Ribbon<'a, MSG> {
+impl<MSG> EventHandler for Ribbon<'_, MSG> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        self.for_all_res(|w| w.update(ctx))
+        self.for_all_res(|w| w.borrow_mut().update(ctx))
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        self.for_all_res(|w| w.draw(ctx))
+        self.for_all_res(|w| w.borrow_mut().draw(ctx))
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        self.for_all(|w| w.mouse_button_down_event(ctx, button, x, y))
+        self.for_all(|w| w.borrow_mut().mouse_button_down_event(ctx, button, x, y))
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        self.for_all(|w| w.mouse_button_up_event(ctx, button, x, y))
+        self.for_all(|w| w.borrow_mut().mouse_button_up_event(ctx, button, x, y))
     }
 }
 
@@ -90,14 +97,14 @@ impl<MSG> Layoutable for Ribbon<'_, MSG> {
             let dw = w / self.widgets.len() as f32;
             let mut x = x;
             self.for_all(|wgt| {
-                wgt.set_rect(x, y, dw, h);
+                wgt.borrow_mut().set_rect(x, y, dw, h);
                 x += dw;
             });
         } else {
             let dh = h / self.widgets.len() as f32;
             let mut y = y;
             self.for_all(|wgt| {
-                wgt.set_rect(x, y, w, dh);
+                wgt.borrow_mut().set_rect(x, y, w, dh);
                 y += dh;
             });
         }

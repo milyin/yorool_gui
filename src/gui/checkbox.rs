@@ -1,41 +1,23 @@
 use crate::gui::{Executable, Layoutable};
-use crate::request::{CtrlId, MessageSender, Unpack};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
-pub enum Event {
-    None,
-    Init,
-    Pressed,
-}
-
-impl Default for Event {
-    fn default() -> Event {
-        Event::None
-    }
-}
-
-pub struct Checkbox<'a, MSG> {
+pub struct Checkbox<'a> {
     state: bool,
     touched: bool,
-    notifications: Vec<MSG>,
     rect: Rect,
-    ctrlid: CtrlId<MSG, Event>,
     on_changed_handlers: Vec<Rc<dyn Fn() + 'a>>,
     pending_handlers: Vec<Rc<dyn Fn() + 'a>>,
 }
 
-impl<'a, MSG> Checkbox<'a, MSG> {
-    pub fn new(ctrl: fn(Event) -> MSG) -> Self {
+impl<'a> Checkbox<'a> {
+    pub fn new() -> Self {
         Self {
             state: false,
             touched: false,
-            notifications: vec![ctrl(Event::Init)],
             rect: Rect::zero(),
-            ctrlid: ctrl.into(),
             on_changed_handlers: Vec::new(),
             pending_handlers: Vec::new(),
         }
@@ -54,16 +36,7 @@ impl<'a, MSG> Checkbox<'a, MSG> {
     }
 }
 
-impl<MSG> MessageSender<MSG> for Checkbox<'_, MSG>
-where
-    MSG: Unpack<Event>,
-{
-    fn get_message(&mut self) -> Option<MSG> {
-        self.notifications.pop()
-    }
-}
-
-impl<MSG> EventHandler for Checkbox<'_, MSG> {
+impl EventHandler for Checkbox<'_> {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         Ok(())
     }
@@ -99,7 +72,6 @@ impl<MSG> EventHandler for Checkbox<'_, MSG> {
         if self.touched && self.rect.contains([x, y]) {
             self.state = !self.state;
             self.touched = false;
-            self.notifications.push(self.ctrlid.tomsg(Event::Pressed));
             for h in &self.on_changed_handlers {
                 self.pending_handlers.push(h.clone());
             }
@@ -109,7 +81,7 @@ impl<MSG> EventHandler for Checkbox<'_, MSG> {
     }
 }
 
-impl<MSG> Layoutable for Checkbox<'_, MSG> {
+impl Layoutable for Checkbox<'_> {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.rect.x = x;
         self.rect.y = y;
@@ -118,7 +90,7 @@ impl<MSG> Layoutable for Checkbox<'_, MSG> {
     }
 }
 
-impl<'a, MSG> Executable<'a> for Checkbox<'a, MSG> {
+impl<'a> Executable<'a> for Checkbox<'a> {
     fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         self.pending_handlers.drain(..).collect()
     }

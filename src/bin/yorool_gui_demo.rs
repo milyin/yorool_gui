@@ -11,65 +11,13 @@ use yorool_gui::gui::button::Button;
 use yorool_gui::gui::checkbox::Checkbox;
 use yorool_gui::gui::panel::Panel;
 use yorool_gui::gui::ribbon::Ribbon;
-use yorool_gui::gui::{button, checkbox, Executable, Layoutable};
-use yorool_gui::request::{CtrlId, Unpack};
-
-#[derive(Debug, Clone)]
-enum GridMsg {
-    RadioA(checkbox::Event),
-    RadioB(checkbox::Event),
-    RadioC(checkbox::Event),
-    Button(button::Event),
-}
-
-//
-// TODO: autogenerate it with macro when stabilized
-//
-impl Unpack<checkbox::Event> for GridMsg {
-    fn peek(&self, ctrlid: CtrlId<Self, checkbox::Event>) -> Option<&checkbox::Event> {
-        let test = ctrlid.tomsg(checkbox::Event::default());
-        match (self, test) {
-            (GridMsg::RadioA(ref e), GridMsg::RadioA(_)) => Some(e),
-            (GridMsg::RadioB(ref e), GridMsg::RadioB(_)) => Some(e),
-            (GridMsg::RadioC(ref e), GridMsg::RadioC(_)) => Some(e),
-            _ => None,
-        }
-    }
-
-    fn unpack(self, ctrlid: CtrlId<Self, checkbox::Event>) -> Result<checkbox::Event, Self> {
-        let test = ctrlid.tomsg(checkbox::Event::default());
-        match (self, test) {
-            (GridMsg::RadioA(e), GridMsg::RadioA(_)) => Ok(e),
-            (GridMsg::RadioB(e), GridMsg::RadioB(_)) => Ok(e),
-            (GridMsg::RadioC(e), GridMsg::RadioC(_)) => Ok(e),
-            (m, _) => Err(m),
-        }
-    }
-}
-
-impl Unpack<button::Event> for GridMsg {
-    fn peek(&self, ctrlid: CtrlId<Self, button::Event>) -> Option<&button::Event> {
-        let test = ctrlid.tomsg(button::Event::default());
-        match (self, test) {
-            (GridMsg::Button(ref e), GridMsg::Button(_)) => Some(e),
-            _ => None,
-        }
-    }
-
-    fn unpack(self, ctrlid: CtrlId<Self, button::Event>) -> Result<button::Event, Self> {
-        let test = ctrlid.tomsg(button::Event::default());
-        match (self, test) {
-            (GridMsg::Button(e), GridMsg::Button(_)) => Ok(e),
-            (m, _) => Err(m),
-        }
-    }
-}
+use yorool_gui::gui::{Executable, Layoutable};
 
 struct GuiDemoState<'a> {
-    panel: Panel<'a, GridMsg>,
+    panel: Panel<'a>,
 }
 
-fn make_radio<'a, MSG: 'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a, MSG>>>>) {
+fn make_radio<'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a>>>>) {
     for n in 0..checkboxes.len() {
         let (head, curr_tail) = checkboxes.split_at(n);
         let (curr, tail) = curr_tail.split_first().unwrap();
@@ -97,9 +45,9 @@ fn make_radio<'a, MSG: 'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a, MSG>>>>) {
 
 impl GuiDemoState<'_> {
     fn new() -> GameResult<Self> {
-        let radio_a = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioA)));
-        let radio_b = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioB)));
-        let radio_c = Rc::new(RefCell::new(Checkbox::new(GridMsg::RadioC)));
+        let radio_a = Rc::new(RefCell::new(Checkbox::new()));
+        let radio_b = Rc::new(RefCell::new(Checkbox::new()));
+        let radio_c = Rc::new(RefCell::new(Checkbox::new()));
 
         make_radio(vec![radio_a.clone(), radio_b.clone(), radio_c.clone()]);
 
@@ -110,7 +58,7 @@ impl GuiDemoState<'_> {
                     .add_widget_rc(radio_b)
                     .add_widget_rc(radio_c),
             )
-            .add_widget(Button::new(GridMsg::Button));
+            .add_widget(Button::new());
 
         let panel = Panel::new(grid);
 

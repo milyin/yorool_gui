@@ -1,57 +1,27 @@
 use crate::gui::{Executable, Layoutable};
-use crate::request::{CtrlId, MessageSender, Unpack};
 use ggez::event::EventHandler;
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::input::mouse::MouseButton;
 use ggez::{Context, GameResult};
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
-pub enum Event {
-    None,
-    Init,
-    Pressed,
-}
-
-impl Default for Event {
-    fn default() -> Event {
-        Event::None
-    }
-}
-
-pub struct Button<MSG> {
+pub struct Button {
     touched: bool,
     pressed: bool,
     rect: Rect,
-    ctrlid: CtrlId<MSG, Event>,
 }
 
-impl<MSG> Button<MSG> {
-    pub fn new(ctrl: fn(Event) -> MSG) -> Self {
+impl Button {
+    pub fn new() -> Self {
         Self {
             touched: false,
             pressed: false,
             rect: Rect::zero(),
-            ctrlid: ctrl.into(),
         }
     }
 }
 
-impl<MSG> MessageSender<MSG> for Button<MSG>
-where
-    MSG: Unpack<Event>,
-{
-    fn get_message(&mut self) -> Option<MSG> {
-        if self.pressed {
-            self.pressed = false;
-            Some(self.ctrlid.tomsg(Event::Pressed))
-        } else {
-            None
-        }
-    }
-}
-
-impl<MSG> EventHandler for Button<MSG> {
+impl EventHandler for Button {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         Ok(())
     }
@@ -87,7 +57,7 @@ impl<MSG> EventHandler for Button<MSG> {
     }
 }
 
-impl<MSG> Layoutable for Button<MSG> {
+impl Layoutable for Button {
     fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.rect.x = x;
         self.rect.y = y;
@@ -96,7 +66,7 @@ impl<MSG> Layoutable for Button<MSG> {
     }
 }
 
-impl<'a, MSG> Executable<'a> for Button<MSG> {
+impl<'a> Executable<'a> for Button {
     fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         Vec::new()
     }

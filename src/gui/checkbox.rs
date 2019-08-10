@@ -2,6 +2,7 @@ use crate::gui::{Executable, Layoutable};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Checkbox<'a> {
@@ -93,5 +94,31 @@ impl Layoutable for Checkbox<'_> {
 impl<'a> Executable<'a> for Checkbox<'a> {
     fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         self.pending_handlers.drain(..).collect()
+    }
+}
+
+pub fn make_radio<'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a>>>>) {
+    for n in 0..checkboxes.len() {
+        let (head, curr_tail) = checkboxes.split_at(n);
+        let (curr, tail) = curr_tail.split_first().unwrap();
+        let handler = {
+            let curr = curr.clone();
+            let others = head
+                .iter()
+                .chain(tail.iter())
+                .map(|v| v.clone())
+                .collect::<Vec<_>>();
+            move || {
+                let mut curr = curr.borrow_mut();
+                if curr.get_state() {
+                    for w in &others {
+                        w.borrow_mut().set_state(false);
+                    }
+                } else {
+                    curr.set_state(true);
+                }
+            }
+        };
+        curr.borrow_mut().on_changed(handler);
     }
 }

@@ -2,6 +2,7 @@ pub mod button;
 pub mod checkbox;
 pub mod panel;
 pub mod ribbon;
+pub mod window_manager;
 
 use ggez::event::EventHandler;
 use std::rc::Rc;

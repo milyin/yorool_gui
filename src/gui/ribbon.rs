@@ -6,8 +6,6 @@ use ggez::{Context, GameResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub type Event = ();
-
 pub struct Ribbon<'a> {
     widgets: Vec<Rc<RefCell<dyn Widget<'a> + 'a>>>,
     rect: Rect,
@@ -28,8 +26,8 @@ impl<'a> Ribbon<'a> {
         self
     }
 
-    pub fn add_widget_rc(mut self, widget: Rc<RefCell<impl Widget<'a> + 'a>>) -> Self {
-        self.widgets.push(widget.clone());
+    pub fn add_widget_rc(mut self, widget: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
+        self.widgets.push(widget);
         self
     }
 

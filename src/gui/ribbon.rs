@@ -13,20 +13,25 @@ pub struct Ribbon<'a> {
 }
 
 impl<'a> Ribbon<'a> {
-    pub fn new(horizontal: bool) -> Self {
+    pub fn new() -> Self {
         Self {
             widgets: Vec::new(),
             rect: Rect::zero(),
-            horizontal,
+            horizontal: true,
         }
     }
 
-    pub fn add_widget(mut self, widget: impl Widget<'a> + 'a) -> Self {
+    pub fn set_horizontal(&mut self, horizontal: bool) -> &mut Self {
+        self.horizontal = horizontal;
+        self
+    }
+
+    pub fn add_widget(&mut self, widget: impl Widget<'a> + 'a) -> &mut Self {
         self.widgets.push(Rc::new(RefCell::new(widget)));
         self
     }
 
-    pub fn add_widget_rc(mut self, widget: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
+    pub fn add_widget_rc(&mut self, widget: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
         self.widgets.push(widget);
         self
     }
@@ -97,5 +102,36 @@ impl<'a> Executable<'a> for Ribbon<'a> {
             v.append(&mut w.borrow_mut().to_execute());
         }
         v
+    }
+}
+
+pub struct RibbonBuilder<'a> {
+    ribbon: Ribbon<'a>,
+}
+
+impl<'a> RibbonBuilder<'a> {
+    pub fn new() -> Self {
+        Self {
+            ribbon: Ribbon::new(),
+        }
+    }
+
+    pub fn build(self) -> Rc<RefCell<Ribbon<'a>>> {
+        Rc::new(RefCell::new(self.ribbon))
+    }
+
+    pub fn set_horizontal(mut self, horizontal: bool) -> Self {
+        self.ribbon.set_horizontal(horizontal);
+        self
+    }
+
+    pub fn add_widget(mut self, w: impl Widget<'a> + 'a) -> Self {
+        self.ribbon.add_widget(w);
+        self
+    }
+
+    pub fn add_widget_rc(mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
+        self.ribbon.add_widget_rc(w);
+        self
     }
 }

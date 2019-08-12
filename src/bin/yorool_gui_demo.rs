@@ -2,16 +2,15 @@ extern crate yorool_gui;
 
 use ggez::conf::{WindowMode, WindowSetup};
 use ggez::event::{self, EventHandler, MouseButton};
-use ggez::graphics::{self, Color, DrawMode, DrawParam, MeshBuilder, Rect};
+use ggez::graphics::{self, Color, Rect};
 use ggez::{Context, ContextBuilder, GameResult};
 
-use ggez::nalgebra::Point2;
 use std::cell::RefCell;
 use std::rc::Rc;
 use yorool_gui::gui::button::Button;
 use yorool_gui::gui::checkbox::{make_radio, Checkbox};
-use yorool_gui::gui::panel::Panel;
-use yorool_gui::gui::ribbon::Ribbon;
+use yorool_gui::gui::panel::PanelBuilder;
+use yorool_gui::gui::ribbon::{Ribbon, RibbonBuilder};
 use yorool_gui::gui::window_manager::WindowManager;
 
 struct GuiDemoState<'a> {
@@ -20,36 +19,40 @@ struct GuiDemoState<'a> {
 }
 
 struct DemoPanel<'a> {
-    radio_a: Rc<RefCell<Checkbox<'a>>>,
-    radio_b: Rc<RefCell<Checkbox<'a>>>,
-    radio_c: Rc<RefCell<Checkbox<'a>>>,
+    radios_ribbon: Rc<RefCell<Ribbon<'a>>>,
+    radios: Vec<Rc<RefCell<Checkbox<'a>>>>,
 }
 
 impl<'a> DemoPanel<'a> {
     fn new(wm: &mut WindowManager<'a>) -> Self {
-        let radio_a = Rc::new(RefCell::new(Checkbox::<'a>::new()));
-        let radio_b = Rc::new(RefCell::new(Checkbox::<'a>::new()));
-        let radio_c = Rc::new(RefCell::new(Checkbox::<'a>::new()));
+        let mut radios = Vec::new();
+        for _i in 0..3 {
+            radios.push(Rc::new(RefCell::new(Checkbox::<'a>::new())));
+        }
 
-        make_radio(vec![radio_a.clone(), radio_b.clone(), radio_c.clone()]);
+        let radios_ribbon = RibbonBuilder::new().set_horizontal(true).build();
 
-        let panel = Rc::new(RefCell::new(Panel::new(
-            Ribbon::new(false)
-                .add_widget(
-                    Ribbon::new(true)
-                        .add_widget_rc(radio_a.clone())
-                        .add_widget_rc(radio_b.clone())
-                        .add_widget_rc(radio_c.clone()),
-                )
-                .add_widget(Button::new()),
-        )));
+        //        make_radio(vec![radio_a.clone(), radio_b.clone(), radio_c.clone()]);
+
+        let panel = PanelBuilder::new()
+            .set_widget_rc(
+                RibbonBuilder::new()
+                    .set_horizontal(false)
+                    .add_widget_rc(radios_ribbon.clone())
+                    .add_widget(Button::new())
+                    .build(),
+            )
+            .build();
+
+        for r in &radios {
+            radios_ribbon.borrow_mut().add_widget_rc(r.clone());
+        }
 
         wm.add_window(panel, Rect::zero(), true);
 
         Self {
-            radio_a,
-            radio_b,
-            radio_c,
+            radios_ribbon,
+            radios,
         }
     }
 }
@@ -73,21 +76,6 @@ impl EventHandler for GuiDemoState<'_> {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         graphics::clear(ctx, Color::new(0., 0., 0., 0.));
         self.window_manager.draw(ctx)?;
-
-        if self.demo_panel.radio_a.borrow_mut().get_state() {
-            let (w, h) = ggez::graphics::drawable_size(ctx);
-            let mesh = MeshBuilder::new()
-                .circle(
-                    DrawMode::stroke(1.),
-                    Point2::new(w / 2., h / 2.),
-                    if h > w { w / 2. } else { h / 2. },
-                    1.,
-                    graphics::WHITE,
-                )
-                .build(ctx)?;
-            graphics::draw(ctx, &mesh, DrawParam::default())?;
-        }
-
         graphics::present(ctx)
     }
 

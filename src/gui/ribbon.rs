@@ -78,26 +78,28 @@ impl EventHandler for Ribbon<'_> {
 }
 
 impl Layoutable for Ribbon<'_> {
-    fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.rect.x = x;
-        self.rect.y = y;
-        self.rect.w = w;
-        self.rect.h = h;
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
         if self.horizontal {
-            let dw = w / self.widgets.len() as f32;
-            let mut x = x;
+            let dw = self.rect.w / self.widgets.len() as f32;
+            let mut x = self.rect.x;
             self.for_all(|wgt| {
-                wgt.borrow_mut().set_rect(x, y, dw, h);
+                wgt.borrow_mut()
+                    .set_rect(Rect::new(x, self.rect.y, dw, self.rect.h));
                 x += dw;
             });
         } else {
-            let dh = h / self.widgets.len() as f32;
-            let mut y = y;
+            let dh = self.rect.h / self.widgets.len() as f32;
+            let mut y = self.rect.y;
             self.for_all(|wgt| {
-                wgt.borrow_mut().set_rect(x, y, w, dh);
+                wgt.borrow_mut()
+                    .set_rect(Rect::new(self.rect.x, y, self.rect.w, dh));
                 y += dh;
             });
         }
+    }
+    fn get_rect(&self) -> Rect {
+        self.rect.clone()
     }
 }
 

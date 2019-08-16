@@ -83,11 +83,11 @@ impl EventHandler for Checkbox<'_> {
 }
 
 impl Layoutable for Checkbox<'_> {
-    fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.rect.x = x;
-        self.rect.y = y;
-        self.rect.w = w;
-        self.rect.h = h;
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn get_rect(&self) -> Rect {
+        self.rect.clone()
     }
 }
 

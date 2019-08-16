@@ -1,5 +1,6 @@
 use crate::gui::{Executable, Layoutable, Widget};
 use ggez::event::{EventHandler, MouseButton};
+use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -51,12 +52,11 @@ impl EventHandler for Panel<'_> {
 }
 
 impl Layoutable for Panel<'_> {
-    fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.widget
-            .as_ref()
-            .unwrap()
-            .borrow_mut()
-            .set_rect(x, y, w, h)
+    fn set_rect(&mut self, rect: Rect) {
+        self.widget.as_ref().unwrap().borrow_mut().set_rect(rect)
+    }
+    fn get_rect(&self) -> Rect {
+        self.widget.as_ref().unwrap().borrow().get_rect()
     }
 }
 

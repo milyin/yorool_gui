@@ -5,6 +5,7 @@ pub mod ribbon;
 pub mod window_manager;
 
 use ggez::event::EventHandler;
+use ggez::graphics::Rect;
 use std::rc::Rc;
 
 pub trait Executable<'a> {
@@ -12,7 +13,8 @@ pub trait Executable<'a> {
 }
 
 pub trait Layoutable {
-    fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32);
+    fn set_rect(&mut self, rect: Rect);
+    fn get_rect(&self) -> Rect;
 }
 pub trait Widget<'a>: EventHandler + Layoutable + Executable<'a> {}
 

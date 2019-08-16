@@ -32,9 +32,9 @@ impl<'a> WindowManager<'a> {
         full_screen: bool,
     ) {
         let widget = widget.clone();
-        widget
-            .borrow_mut()
-            .set_rect(self.rect.x + rect.x, self.rect.y + rect.y, rect.w, rect.h);
+        let mut wrect = rect.clone();
+        wrect.translate([self.rect.x, self.rect.y]); // FIXME: is it correct?
+        widget.borrow_mut().set_rect(wrect);
         self.windows.push(Window {
             widget,
             rect,
@@ -48,11 +48,11 @@ impl EventHandler for WindowManager<'_> {
         let (width, height) = ggez::graphics::drawable_size(ctx);
         for w in &mut self.windows {
             if w.full_screen {
-                w.widget.borrow_mut().set_rect(0., 0., width, height);
-            } else {
                 w.widget
                     .borrow_mut()
-                    .set_rect(w.rect.x, w.rect.y, w.rect.w, w.rect.h);
+                    .set_rect(Rect::new(0., 0., width, height));
+            } else {
+                w.widget.borrow_mut().set_rect(w.rect.clone());
             }
             w.widget.borrow_mut().update(ctx)?;
             for e in w.widget.borrow_mut().to_execute() {
@@ -87,10 +87,10 @@ impl EventHandler for WindowManager<'_> {
 }
 
 impl Layoutable for WindowManager<'_> {
-    fn set_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.rect.x = x;
-        self.rect.y = y;
-        self.rect.w = w;
-        self.rect.h = h;
+    fn set_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+    }
+    fn get_rect(&self) -> Rect {
+        self.rect.clone()
     }
 }

@@ -7,7 +7,7 @@ use ggez::{Context, ContextBuilder, GameResult};
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use yorool_gui::gui::button::Button;
+use yorool_gui::gui::button::{Button, ButtonBuilder};
 use yorool_gui::gui::checkbox::{make_radio, Checkbox};
 use yorool_gui::gui::panel::PanelBuilder;
 use yorool_gui::gui::ribbon::{Ribbon, RibbonBuilder};
@@ -31,15 +31,24 @@ impl<'a> DemoPanel<'a> {
         }
 
         let radios_ribbon = RibbonBuilder::new().set_horizontal(true).build();
+        let button = ButtonBuilder::new().build();
 
         //        make_radio(vec![radio_a.clone(), radio_b.clone(), radio_c.clone()]);
+
+        button.borrow_mut().on_click(Rc::new({
+            let radios_ribbon = radios_ribbon.clone();
+            move |_| {
+                let h = radios_ribbon.borrow().is_horizontal();
+                radios_ribbon.borrow_mut().set_horizontal(!h);
+            }
+        }));
 
         let panel = PanelBuilder::new()
             .set_widget_rc(
                 RibbonBuilder::new()
                     .set_horizontal(false)
                     .add_widget_rc(radios_ribbon.clone())
-                    .add_widget(Button::new())
+                    .add_widget_rc(button.clone())
                     .build(),
             )
             .build();

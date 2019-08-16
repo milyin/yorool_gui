@@ -4,12 +4,13 @@ use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub struct Ribbon<'a> {
     widgets: Vec<Rc<RefCell<dyn Widget<'a> + 'a>>>,
     rect: Rect,
     horizontal: bool,
+    rcself: Option<Weak<RefCell<Self>>>,
 }
 
 impl<'a> Ribbon<'a> {
@@ -18,12 +19,17 @@ impl<'a> Ribbon<'a> {
             widgets: Vec::new(),
             rect: Rect::zero(),
             horizontal: true,
+            rcself: None,
         }
     }
 
     pub fn set_horizontal(&mut self, horizontal: bool) -> &mut Self {
         self.horizontal = horizontal;
         self
+    }
+
+    pub fn is_horizontal(&self) -> bool {
+        self.horizontal
     }
 
     pub fn add_widget(&mut self, widget: impl Widget<'a> + 'a) -> &mut Self {
@@ -117,7 +123,9 @@ impl<'a> RibbonBuilder<'a> {
     }
 
     pub fn build(self) -> Rc<RefCell<Ribbon<'a>>> {
-        Rc::new(RefCell::new(self.ribbon))
+        let rc = Rc::new(RefCell::new(self.ribbon));
+        rc.borrow_mut().rcself = Some(Rc::downgrade(&rc));
+        rc
     }
 
     pub fn set_horizontal(mut self, horizontal: bool) -> Self {

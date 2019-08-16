@@ -1,16 +1,17 @@
-use crate::gui::{Executable, Layoutable};
+use crate::gui::{Executable, Layoutable, Widget};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-pub trait ICheckbox: Layoutable {
+pub trait ICheckbox {
     fn get_state(&self) -> bool;
     fn set_state(&mut self, state: bool);
 }
 
-type Handler<'a> = Rc<dyn Fn(Rc<RefCell<dyn ICheckbox + 'a>>) + 'a>;
+type Handler<'a> =
+    Rc<dyn Fn(Rc<RefCell<dyn Widget<'a> + 'a>>, Rc<RefCell<dyn ICheckbox + 'a>>) + 'a>;
 
 pub struct Checkbox<'a> {
     state: bool,
@@ -87,7 +88,7 @@ impl EventHandler for Checkbox<'_> {
                 let rcself = self.rcself.as_ref().unwrap().upgrade().unwrap();
                 let hc = h.clone();
                 self.pending_handlers
-                    .push(Rc::new(move || hc(rcself.clone())));
+                    .push(Rc::new(move || hc(rcself.clone(), rcself.clone())));
             }
         } else {
             self.touched = false;

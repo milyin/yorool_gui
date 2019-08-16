@@ -37,6 +37,15 @@ impl<'a> Ribbon<'a> {
         self
     }
 
+    pub fn remove_widget(&mut self, widget: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
+        // This is extremely ugly but because of comparing fat pointers we can't use Rc::ptr_eq or even
+        // std::ptr::eq. See this discussion https://github.com/rust-lang/rust/issues/63021
+        let pwidget = widget.as_ptr() as *const _ as *const ();
+        self.widgets
+            .drain_filter(|w| w.as_ptr() as *const _ as *const () == pwidget);
+        self
+    }
+
     fn for_all_res<F: FnMut(Rc<RefCell<dyn Widget<'a> + 'a>>) -> GameResult>(
         &self,
         mut f: F,

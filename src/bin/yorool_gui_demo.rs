@@ -12,6 +12,7 @@ use yorool_gui::gui::checkbox::{Checkbox, CheckboxBuilder};
 use yorool_gui::gui::panel::PanelBuilder;
 use yorool_gui::gui::ribbon::{Ribbon, RibbonBuilder};
 use yorool_gui::gui::window_manager::WindowManager;
+use yorool_gui::gui::Widget;
 
 struct GuiDemoState<'a> {
     window_manager: WindowManager<'a>,
@@ -38,9 +39,12 @@ impl<'a> DemoPanel<'a> {
         button.borrow_mut().on_click(Rc::new({
             let radios_ribbon = radios_ribbon.clone();
             move |_| {
-                radios_ribbon
-                    .borrow_mut()
-                    .add_widget(CheckboxBuilder::new().build());
+                let checkbox = CheckboxBuilder::new().build();
+                let radios_ribbon_copy = radios_ribbon.clone();
+                checkbox.borrow_mut().on_changed(Rc::new(move |w, c| {
+                    radios_ribbon_copy.borrow_mut().remove_widget(w);
+                }));
+                radios_ribbon.borrow_mut().add_widget(checkbox);
             }
         }));
 

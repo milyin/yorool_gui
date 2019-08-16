@@ -14,12 +14,7 @@ impl<'a> Panel<'a> {
         Self { widget: None }
     }
 
-    pub fn set_widget(&mut self, w: impl Widget<'a> + 'a) -> &mut Self {
-        self.widget = Some(Rc::new(RefCell::new(w)));
-        self
-    }
-
-    pub fn set_widget_rc(&mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
+    pub fn set_widget(&mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
         self.widget = Some(w);
         self
     }
@@ -81,13 +76,8 @@ impl<'a> PanelBuilder<'a> {
         Rc::new(RefCell::new(self.panel))
     }
 
-    pub fn set_widget(mut self, w: impl Widget<'a> + 'a) -> Self {
+    pub fn set_widget(mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
         self.panel.set_widget(w);
-        self
-    }
-
-    pub fn set_widget_rc(mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
-        self.panel.set_widget_rc(w);
         self
     }
 }

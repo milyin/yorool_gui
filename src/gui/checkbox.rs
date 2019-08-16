@@ -3,37 +3,47 @@ use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
+
+pub trait ICheckbox: Layoutable {
+    fn get_state(&self) -> bool;
+    fn set_state(&mut self, state: bool);
+}
+
+type Handler<'a> = Rc<dyn Fn(Rc<RefCell<dyn ICheckbox + 'a>>) + 'a>;
 
 pub struct Checkbox<'a> {
     state: bool,
     touched: bool,
     rect: Rect,
-    on_changed_handlers: Vec<Rc<dyn Fn() + 'a>>,
+    on_changed_handlers: Vec<Handler<'a>>,
     pending_handlers: Vec<Rc<dyn Fn() + 'a>>,
+    rcself: Option<Weak<RefCell<Self>>>,
 }
 
 impl<'a> Checkbox<'a> {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             state: false,
             touched: false,
             rect: Rect::zero(),
             on_changed_handlers: Vec::new(),
             pending_handlers: Vec::new(),
+            rcself: None,
         }
     }
 
-    pub fn get_state(&self) -> bool {
+    pub fn on_changed(&mut self, handler: Handler<'a>) {
+        self.on_changed_handlers.push(handler);
+    }
+}
+
+impl ICheckbox for Checkbox<'_> {
+    fn get_state(&self) -> bool {
         self.state
     }
-
-    pub fn set_state(&mut self, state: bool) {
+    fn set_state(&mut self, state: bool) {
         self.state = state;
-    }
-
-    pub fn on_changed<F: Fn() + 'a>(&mut self, handler: F) {
-        self.on_changed_handlers.push(Rc::new(handler));
     }
 }
 
@@ -74,7 +84,10 @@ impl EventHandler for Checkbox<'_> {
             self.state = !self.state;
             self.touched = false;
             for h in &self.on_changed_handlers {
-                self.pending_handlers.push(h.clone());
+                let rcself = self.rcself.as_ref().unwrap().upgrade().unwrap();
+                let hc = h.clone();
+                self.pending_handlers
+                    .push(Rc::new(move || hc(rcself.clone())));
             }
         } else {
             self.touched = false;
@@ -96,7 +109,7 @@ impl<'a> Executable<'a> for Checkbox<'a> {
         self.pending_handlers.drain(..).collect()
     }
 }
-
+/*
 pub fn make_radio<'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a>>>>) {
     for n in 0..checkboxes.len() {
         let (head, curr_tail) = checkboxes.split_at(n);
@@ -120,5 +133,23 @@ pub fn make_radio<'a>(checkboxes: Vec<Rc<RefCell<Checkbox<'a>>>>) {
             }
         };
         curr.borrow_mut().on_changed(handler);
+    }
+}
+*/
+pub struct CheckboxBuilder<'a> {
+    ribbon: Checkbox<'a>,
+}
+
+impl<'a> CheckboxBuilder<'a> {
+    pub fn new() -> Self {
+        Self {
+            ribbon: Checkbox::new(),
+        }
+    }
+
+    pub fn build(self) -> Rc<RefCell<Checkbox<'a>>> {
+        let rc = Rc::new(RefCell::new(self.ribbon));
+        rc.borrow_mut().rcself = Some(Rc::downgrade(&rc));
+        rc
     }
 }

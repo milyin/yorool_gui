@@ -8,7 +8,7 @@ use ggez::{Context, ContextBuilder, GameResult};
 use std::cell::RefCell;
 use std::rc::Rc;
 use yorool_gui::gui::button::{Button, ButtonBuilder};
-use yorool_gui::gui::checkbox::{make_radio, Checkbox};
+use yorool_gui::gui::checkbox::{Checkbox, CheckboxBuilder};
 use yorool_gui::gui::panel::PanelBuilder;
 use yorool_gui::gui::ribbon::{Ribbon, RibbonBuilder};
 use yorool_gui::gui::window_manager::WindowManager;
@@ -27,7 +27,7 @@ impl<'a> DemoPanel<'a> {
     fn new(wm: &mut WindowManager<'a>) -> Self {
         let mut radios = Vec::new();
         for _i in 0..3 {
-            radios.push(Rc::new(RefCell::new(Checkbox::<'a>::new())));
+            radios.push(CheckboxBuilder::new().build())
         }
 
         let radios_ribbon = RibbonBuilder::new().set_horizontal(true).build();
@@ -38,23 +38,24 @@ impl<'a> DemoPanel<'a> {
         button.borrow_mut().on_click(Rc::new({
             let radios_ribbon = radios_ribbon.clone();
             move |_| {
-                let h = radios_ribbon.borrow().is_horizontal();
-                radios_ribbon.borrow_mut().set_horizontal(!h);
+                radios_ribbon
+                    .borrow_mut()
+                    .add_widget(CheckboxBuilder::new().build());
             }
         }));
 
         let panel = PanelBuilder::new()
-            .set_widget_rc(
+            .set_widget(
                 RibbonBuilder::new()
                     .set_horizontal(false)
-                    .add_widget_rc(radios_ribbon.clone())
-                    .add_widget_rc(button.clone())
+                    .add_widget(radios_ribbon.clone())
+                    .add_widget(button.clone())
                     .build(),
             )
             .build();
 
         for r in &radios {
-            radios_ribbon.borrow_mut().add_widget_rc(r.clone());
+            radios_ribbon.borrow_mut().add_widget(r.clone());
         }
 
         wm.add_window(panel, Rect::zero(), true);

@@ -38,6 +38,28 @@ impl<'a> RadioPanel {
             .add_widget(radio_c)
             .build();
 
+        let add_radio = {
+            let radio_group = radio_group.clone();
+            let radio_ribbon = radio_ribbon.clone();
+            move |_| {
+                let radio = CheckboxBuilder::new().build();
+                radio_group.borrow_mut().add_widget(radio.clone());
+                radio_ribbon.borrow_mut().add_widget(radio.clone());
+            }
+        };
+
+        let remove_radio = {
+            let radio_group = radio_group.clone();
+            let radio_ribbon = radio_ribbon.clone();
+            move |_| {
+                let radio = radio_group.borrow().radios().last().map(|r| r.clone());
+                if let Some(radio) = radio {
+                    radio_group.borrow_mut().remove_widget(radio.clone());
+                    radio_ribbon.borrow_mut().remove_widget(radio.clone());
+                }
+            }
+        };
+
         let panel = PanelBuilder::new()
             .add_widget(
                 RibbonBuilder::new()
@@ -46,20 +68,8 @@ impl<'a> RadioPanel {
                     .add_widget(
                         RibbonBuilder::new()
                             .set_horizontal(true)
-                            .add_widget(
-                                ButtonBuilder::new()
-                                    .on_click({
-                                        let radio_group = radio_group.clone();
-                                        let radio_ribbon = radio_ribbon.clone();
-                                        move |_| {
-                                            let radio = CheckboxBuilder::new().build();
-                                            radio_group.borrow_mut().add_widget(radio.clone());
-                                            radio_ribbon.borrow_mut().add_widget(radio);
-                                        }
-                                    })
-                                    .build(),
-                            )
-                            .add_widget(ButtonBuilder::new().build())
+                            .add_widget(ButtonBuilder::new().on_click(add_radio).build())
+                            .add_widget(ButtonBuilder::new().on_click(remove_radio).build())
                             .build(),
                     )
                     .build(),

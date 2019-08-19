@@ -1,4 +1,4 @@
-use crate::gui::Widget;
+use crate::gui::{is_same, Widget};
 use crate::gui::{Executable, Layoutable};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
@@ -37,10 +37,8 @@ impl<'a> Ribbon<'a> {
         self
     }
 
-    pub fn remove_widget(&mut self, widget: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
-        let pwidget = widget.as_ptr() as *const _ as *const ();
-        self.widgets
-            .drain_filter(|w| w.as_ptr() as *const _ as *const () == pwidget);
+    pub fn remove_widget<T: ?Sized>(&mut self, w: Rc<RefCell<T>>) -> &mut Self {
+        self.widgets.drain_filter(|pw| is_same(pw, &w)).count();
         self
     }
 

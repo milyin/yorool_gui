@@ -52,6 +52,10 @@ impl<'a> RadioGroup<'a> {
         w.borrow_mut().remove_handler(self.owned_handler());
         self.radios.drain_filter(move |pw| is_same(pw, &w)).count();
     }
+
+    pub fn radios<'b>(&'b self) -> &'b [Rc<RefCell<dyn ICheckbox<'a> + 'a>>] {
+        self.radios.as_slice()
+    }
 }
 
 impl EventHandler for RadioGroup<'_> {

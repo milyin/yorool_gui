@@ -68,8 +68,18 @@ impl<'a> RadioPanel {
                     .add_widget(
                         RibbonBuilder::new()
                             .set_horizontal(true)
-                            .add_widget(ButtonBuilder::new().on_click(add_radio).build())
-                            .add_widget(ButtonBuilder::new().on_click(remove_radio).build())
+                            .add_widget(
+                                ButtonBuilder::new()
+                                    .set_label("Add")
+                                    .on_click(add_radio)
+                                    .build(),
+                            )
+                            .add_widget(
+                                ButtonBuilder::new()
+                                    .set_label("Remove")
+                                    .on_click(remove_radio)
+                                    .build(),
+                            )
                             .build(),
                     )
                     .build(),

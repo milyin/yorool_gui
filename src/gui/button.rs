@@ -1,12 +1,14 @@
-use crate::gui::{Executable, Layoutable};
+use crate::gui::{Executable, ILabel, Layoutable};
 use ggez::event::EventHandler;
-use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
+use ggez::graphics::{self, Align, DrawMode, DrawParam, MeshBuilder, Rect, Text};
 use ggez::input::mouse::MouseButton;
+use ggez::nalgebra::Point2;
 use ggez::{Context, GameResult};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 pub struct Button<'a> {
+    label: String,
     touched: bool,
     rect: Rect,
     on_click_handlers: Vec<Rc<dyn Fn(Rc<RefCell<Self>>) + 'a>>,
@@ -17,6 +19,7 @@ pub struct Button<'a> {
 impl<'a> Button<'a> {
     fn new() -> Self {
         Self {
+            label: String::new(),
             touched: false,
             rect: Rect::zero(),
             on_click_handlers: Vec::new(),
@@ -52,6 +55,15 @@ impl<'a> Button<'a> {
     }
 }
 
+impl<'a> ILabel<'a> for Button<'a> {
+    fn get_label(&self) -> String {
+        self.label.clone()
+    }
+    fn set_label(&mut self, label: String) {
+        self.label = label;
+    }
+}
+
 impl<'a> EventHandler for Button<'a> {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         Ok(())
@@ -69,7 +81,16 @@ impl<'a> EventHandler for Button<'a> {
         let mesh = MeshBuilder::new()
             .rectangle(DrawMode::fill(), rect, graphics::WHITE)
             .build(ctx)?;
-        graphics::draw(ctx, &mesh, DrawParam::default())
+        graphics::draw(ctx, &mesh, DrawParam::default())?;
+
+        let mut text = Text::new(self.label.clone());
+        text.set_bounds([rect.w, rect.h], Align::Center);
+        let tdh = (rect.h - text.height(ctx) as f32) / 2.;
+        graphics::draw(
+            ctx,
+            &text,
+            (Point2::new(rect.x, rect.y + tdh), graphics::BLACK),
+        )
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
@@ -112,6 +133,11 @@ impl<'a> ButtonBuilder<'a> {
         let button = Rc::new(RefCell::new(Button::new()));
         button.borrow_mut().rcself = Some(Rc::downgrade(&button));
         Self { button }
+    }
+
+    pub fn set_label<S: Into<String>>(self, label: S) -> Self {
+        self.button.borrow_mut().set_label(label.into());
+        self
     }
 
     pub fn on_click(self, handler: impl Fn(Rc<RefCell<Button<'a>>>) + 'a) -> Self {

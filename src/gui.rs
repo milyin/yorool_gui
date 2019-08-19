@@ -29,6 +29,11 @@ pub trait ICheckbox<'a> {
     fn remove_handler(&mut self, handler: Rc<dyn Fn(Rc<RefCell<dyn ICheckbox<'a> + 'a>>) + 'a>);
 }
 
+pub trait ILabel<'a> {
+    fn get_label(&self) -> String;
+    fn set_label(&mut self, label: String);
+}
+
 // Accordincly to discussions below there is still no api to compare only
 // data part of fat pointers. So using own api for now
 // https://github.com/rust-lang/rust/issues/63021

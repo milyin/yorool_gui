@@ -55,7 +55,7 @@ impl EventHandler for WindowManager<'_> {
                 w.widget.borrow_mut().set_rect(w.rect.clone());
             }
             w.widget.borrow_mut().update(ctx)?;
-            for e in w.widget.borrow_mut().to_execute() {
+            for e in w.widget.borrow_mut().take_to_execute() {
                 (*e)()
             }
         }

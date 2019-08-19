@@ -6,14 +6,10 @@ use ggez::{Context, GameResult};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-pub trait IButton: Layoutable {}
-
-type Handler<'a> = Rc<dyn Fn(Rc<RefCell<dyn IButton + 'a>>) + 'a>;
-
 pub struct Button<'a> {
     touched: bool,
     rect: Rect,
-    on_click_handlers: Vec<Handler<'a>>,
+    on_click_handlers: Vec<Rc<dyn Fn(Rc<RefCell<Self>>) + 'a>>,
     pending_handlers: Vec<Rc<dyn Fn() + 'a>>,
     rcself: Option<Weak<RefCell<Self>>>,
 }
@@ -29,12 +25,32 @@ impl<'a> Button<'a> {
         }
     }
 
-    pub fn on_click(&mut self, handler: Handler<'a>) {
+    fn rcself(&self) -> Rc<RefCell<Self>> {
+        self.rcself.as_ref().unwrap().upgrade().unwrap().clone()
+    }
+
+    pub fn on_click(
+        &mut self,
+        handler: impl Fn(Rc<RefCell<Self>>) + 'a,
+    ) -> Rc<dyn Fn(Rc<RefCell<Self>>) + 'a> {
+        let rc = Rc::new(handler);
+        self.on_click_rc(rc.clone());
+        rc
+    }
+
+    pub fn on_click_rc(&mut self, handler: Rc<dyn Fn(Rc<RefCell<Self>>) + 'a>) {
         self.on_click_handlers.push(handler)
     }
-}
 
-impl IButton for Button<'_> {}
+    fn fire_on_click(&mut self) {
+        for h in &self.on_click_handlers {
+            let rcself = self.rcself();
+            let hc = h.clone();
+            self.pending_handlers
+                .push(Rc::new(move || hc(rcself.clone())));
+        }
+    }
+}
 
 impl<'a> EventHandler for Button<'a> {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
@@ -65,12 +81,7 @@ impl<'a> EventHandler for Button<'a> {
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, _button: MouseButton, x: f32, y: f32) {
         if self.touched && self.rect.contains([x, y]) {
             self.touched = false;
-            for h in &self.on_click_handlers {
-                let rcself = self.rcself.as_ref().unwrap().upgrade().unwrap();
-                let hc = h.clone();
-                self.pending_handlers
-                    .push(Rc::new(move || hc(rcself.clone())));
-            }
+            self.fire_on_click();
         } else {
             self.touched = false;
         }
@@ -87,25 +98,28 @@ impl Layoutable for Button<'_> {
 }
 
 impl<'a> Executable<'a> for Button<'a> {
-    fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         self.pending_handlers.drain(..).collect()
     }
 }
 
 pub struct ButtonBuilder<'a> {
-    ribbon: Button<'a>,
+    button: Rc<RefCell<Button<'a>>>,
 }
 
 impl<'a> ButtonBuilder<'a> {
     pub fn new() -> Self {
-        Self {
-            ribbon: Button::new(),
-        }
+        let button = Rc::new(RefCell::new(Button::new()));
+        button.borrow_mut().rcself = Some(Rc::downgrade(&button));
+        Self { button }
+    }
+
+    pub fn on_click(self, handler: impl Fn(Rc<RefCell<Button<'a>>>) + 'a) -> Self {
+        self.button.borrow_mut().on_click(handler);
+        self
     }
 
     pub fn build(self) -> Rc<RefCell<Button<'a>>> {
-        let rc = Rc::new(RefCell::new(self.ribbon));
-        rc.borrow_mut().rcself = Some(Rc::downgrade(&rc));
-        rc
+        self.button
     }
 }

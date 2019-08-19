@@ -38,8 +38,6 @@ impl<'a> Ribbon<'a> {
     }
 
     pub fn remove_widget(&mut self, widget: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
-        // This is extremely ugly but because of comparing fat pointers we can't use Rc::ptr_eq or even
-        // std::ptr::eq. See this discussion https://github.com/rust-lang/rust/issues/63021
         let pwidget = widget.as_ptr() as *const _ as *const ();
         self.widgets
             .drain_filter(|w| w.as_ptr() as *const _ as *const () == pwidget);
@@ -108,10 +106,10 @@ impl Layoutable for Ribbon<'_> {
 }
 
 impl<'a> Executable<'a> for Ribbon<'a> {
-    fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         let mut v = Vec::new();
         for w in &mut self.widgets {
-            v.append(&mut w.borrow_mut().to_execute());
+            v.append(&mut w.borrow_mut().take_to_execute());
         }
         v
     }

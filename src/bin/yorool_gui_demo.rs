@@ -5,79 +5,80 @@ use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color, Rect};
 use ggez::{Context, ContextBuilder, GameResult};
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use yorool_gui::gui::button::{Button, ButtonBuilder};
-use yorool_gui::gui::checkbox::{Checkbox, CheckboxBuilder};
+use yorool_gui::gui::button::ButtonBuilder;
+use yorool_gui::gui::checkbox::CheckboxBuilder;
 use yorool_gui::gui::panel::PanelBuilder;
-use yorool_gui::gui::ribbon::{Ribbon, RibbonBuilder};
+use yorool_gui::gui::radio_group::RadioGroupBuilder;
+use yorool_gui::gui::ribbon::RibbonBuilder;
 use yorool_gui::gui::window_manager::WindowManager;
-use yorool_gui::gui::Widget;
 
 struct GuiDemoState<'a> {
     window_manager: WindowManager<'a>,
-    demo_panel: DemoPanel<'a>,
+    _radio_panel: RadioPanel,
 }
 
-struct DemoPanel<'a> {
-    radios_ribbon: Rc<RefCell<Ribbon<'a>>>,
-    radios: Vec<Rc<RefCell<Checkbox<'a>>>>,
-}
+struct RadioPanel {}
 
-impl<'a> DemoPanel<'a> {
+impl<'a> RadioPanel {
     fn new(wm: &mut WindowManager<'a>) -> Self {
-        let mut radios = Vec::new();
-        for _i in 0..3 {
-            radios.push(CheckboxBuilder::new().build())
-        }
+        let radio_a = CheckboxBuilder::new().build();
+        let radio_b = CheckboxBuilder::new().build();
+        let radio_c = CheckboxBuilder::new().build();
 
-        let radios_ribbon = RibbonBuilder::new().set_horizontal(true).build();
-        let button = ButtonBuilder::new().build();
+        let radio_group = RadioGroupBuilder::new()
+            .add_widget(radio_a.clone())
+            .add_widget(radio_b.clone())
+            .add_widget(radio_c.clone())
+            .build();
 
-        //        make_radio(vec![radio_a.clone(), radio_b.clone(), radio_c.clone()]);
-
-        button.borrow_mut().on_click(Rc::new({
-            let radios_ribbon = radios_ribbon.clone();
-            move |_| {
-                let checkbox = CheckboxBuilder::new().build();
-                let radios_ribbon_copy = radios_ribbon.clone();
-                checkbox.borrow_mut().on_changed(Rc::new(move |w, c| {
-                    radios_ribbon_copy.borrow_mut().remove_widget(w);
-                }));
-                radios_ribbon.borrow_mut().add_widget(checkbox);
-            }
-        }));
+        let radio_ribbon = RibbonBuilder::new()
+            .set_horizontal(true)
+            .add_widget(radio_a)
+            .add_widget(radio_b)
+            .add_widget(radio_c)
+            .build();
 
         let panel = PanelBuilder::new()
-            .set_widget(
+            .add_widget(
                 RibbonBuilder::new()
                     .set_horizontal(false)
-                    .add_widget(radios_ribbon.clone())
-                    .add_widget(button.clone())
+                    .add_widget(radio_ribbon.clone())
+                    .add_widget(
+                        RibbonBuilder::new()
+                            .set_horizontal(true)
+                            .add_widget(
+                                ButtonBuilder::new()
+                                    .on_click({
+                                        let radio_group = radio_group.clone();
+                                        let radio_ribbon = radio_ribbon.clone();
+                                        move |_| {
+                                            let radio = CheckboxBuilder::new().build();
+                                            radio_group.borrow_mut().add_widget(radio.clone());
+                                            radio_ribbon.borrow_mut().add_widget(radio);
+                                        }
+                                    })
+                                    .build(),
+                            )
+                            .add_widget(ButtonBuilder::new().build())
+                            .build(),
+                    )
                     .build(),
             )
             .build();
 
-        for r in &radios {
-            radios_ribbon.borrow_mut().add_widget(r.clone());
-        }
-
         wm.add_window(panel, Rect::zero(), true);
 
-        Self {
-            radios_ribbon,
-            radios,
-        }
+        Self {}
     }
 }
 
 impl GuiDemoState<'_> {
     fn new() -> Self {
         let mut window_manager = WindowManager::new();
-        let demo_panel = DemoPanel::new(&mut window_manager);
+        let _radio_panel = RadioPanel::new(&mut window_manager);
         Self {
             window_manager,
-            demo_panel,
+            _radio_panel,
         }
     }
 }

@@ -6,58 +6,72 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Panel<'a> {
-    widget: Option<Rc<RefCell<dyn Widget<'a> + 'a>>>,
+    widgets: Vec<Rc<RefCell<dyn Widget<'a> + 'a>>>,
 }
 
 impl<'a> Panel<'a> {
     pub fn new() -> Self {
-        Self { widget: None }
+        Self {
+            widgets: Vec::new(),
+        }
     }
 
-    pub fn set_widget(&mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
-        self.widget = Some(w);
+    pub fn add_widget(&mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> &mut Self {
+        self.widgets.push(w);
         self
     }
 }
 
 impl EventHandler for Panel<'_> {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        self.widget.as_ref().unwrap().borrow_mut().update(ctx)
+        for w in &self.widgets {
+            w.borrow_mut().update(ctx)?
+        }
+        Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        self.widget.as_ref().unwrap().borrow_mut().draw(ctx)
+        for w in &self.widgets {
+            w.borrow_mut().draw(ctx)?
+        }
+        Ok(())
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        self.widget
-            .as_ref()
-            .unwrap()
-            .borrow_mut()
-            .mouse_button_down_event(ctx, button, x, y)
+        for w in &self.widgets {
+            w.borrow_mut().mouse_button_down_event(ctx, button, x, y)
+        }
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
-        self.widget
-            .as_ref()
-            .unwrap()
-            .borrow_mut()
-            .mouse_button_up_event(ctx, button, x, y)
+        for w in &self.widgets {
+            w.borrow_mut().mouse_button_up_event(ctx, button, x, y)
+        }
     }
 }
 
 impl Layoutable for Panel<'_> {
     fn set_rect(&mut self, rect: Rect) {
-        self.widget.as_ref().unwrap().borrow_mut().set_rect(rect)
+        for w in &self.widgets {
+            w.borrow_mut().set_rect(rect)
+        }
     }
     fn get_rect(&self) -> Rect {
-        self.widget.as_ref().unwrap().borrow().get_rect()
+        let mut max_rect = Rect::zero();
+        for w in &self.widgets {
+            max_rect = max_rect.combine_with(w.borrow().get_rect())
+        }
+        max_rect
     }
 }
 
 impl<'a> Executable<'a> for Panel<'a> {
-    fn to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
-        self.widget.as_ref().unwrap().borrow_mut().to_execute()
+    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+        let mut v = Vec::new();
+        for w in &mut self.widgets {
+            v.append(&mut w.borrow_mut().take_to_execute());
+        }
+        v
     }
 }
 
@@ -76,8 +90,8 @@ impl<'a> PanelBuilder<'a> {
         Rc::new(RefCell::new(self.panel))
     }
 
-    pub fn set_widget(mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
-        self.panel.set_widget(w);
+    pub fn add_widget(mut self, w: Rc<RefCell<dyn Widget<'a> + 'a>>) -> Self {
+        self.panel.add_widget(w);
         self
     }
 }

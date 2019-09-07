@@ -10,6 +10,11 @@
       <sourceFolder url="file://$MODULE_DIR$/../yorool_gui\examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../yorool_gui\tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/../yorool_gui\benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/src/qqq/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/qqq\examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/qqq\tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/src/qqq\benches" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/src/qqq\target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

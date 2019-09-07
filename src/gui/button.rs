@@ -1,61 +1,69 @@
 use crate::gui::{Executable, ILabel, Layoutable};
+use crate::models::{
+    collect_fired_actions, handler_id, Handler, HandlerId, TButtonBackend, TButtonFrontend,
+    THandlers, TRcSelf,
+};
 use ggez::event::EventHandler;
 use ggez::graphics::{self, Align, DrawMode, DrawParam, MeshBuilder, Rect, Text};
 use ggez::input::mouse::MouseButton;
 use ggez::nalgebra::Point2;
 use ggez::{Context, GameResult};
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 
-pub struct Button<'a> {
+pub struct Backend<'a> {
     label: String,
     touched: bool,
-    rect: Rect,
-    on_click_handlers: Vec<Rc<dyn Fn(Rc<RefCell<Self>>) + 'a>>,
-    pending_handlers: Vec<Rc<dyn Fn() + 'a>>,
+    on_click_handlers: HashMap<HandlerId, Handler<'a, Self>>,
+    pending_handlers: Vec<Handler<'a, Self>>,
     rcself: Option<Weak<RefCell<Self>>>,
 }
 
-impl<'a> Button<'a> {
-    fn new() -> Self {
-        Self {
+impl TRcSelf for Backend<'_> {
+    fn create() -> Rc<RefCell<Self>> {
+        let v = Rc::new(RefCell::new(Self {
             label: String::new(),
             touched: false,
-            rect: Rect::zero(),
-            on_click_handlers: Vec::new(),
+            on_click_handlers: HashMap::new(),
             pending_handlers: Vec::new(),
             rcself: None,
-        }
+        }));
+        v.borrow_mut().rcself = Some(Rc::downgrade(&v.clone()));
+        v
     }
-
     fn rcself(&self) -> Rc<RefCell<Self>> {
         self.rcself.as_ref().unwrap().upgrade().unwrap().clone()
     }
+}
 
-    pub fn on_click(
-        &mut self,
-        handler: impl Fn(Rc<RefCell<Self>>) + 'a,
-    ) -> Rc<dyn Fn(Rc<RefCell<Self>>) + 'a> {
-        let rc = Rc::new(handler);
-        self.on_click_rc(rc.clone());
-        rc
+impl<'a> THandlers<'a> for Backend<'a> {
+    fn remove_handler(&mut self, hid: HandlerId) {
+        self.on_click_handlers.remove(&hid);
     }
-
-    pub fn on_click_rc(&mut self, handler: Rc<dyn Fn(Rc<RefCell<Self>>) + 'a>) {
-        self.on_click_handlers.push(handler)
-    }
-
-    fn fire_on_click(&mut self) {
-        for h in &self.on_click_handlers {
-            let rcself = self.rcself();
-            let hc = h.clone();
-            self.pending_handlers
-                .push(Rc::new(move || hc(rcself.clone())));
-        }
+    fn collect_fired_handlers(&mut self) -> Vec<Handler<'a, Self>> {
+        self.pending_handlers.drain(..).collect()
     }
 }
 
-impl<'a> ILabel<'a> for Button<'a> {
+impl<'a> TButtonBackend<'a> for Backend<'a> {
+    fn set_touched(&mut self, state: bool) {
+        self.touched = state
+    }
+    fn is_touched(&self) -> bool {
+        self.touched
+    }
+    fn click(&mut self) {
+        let mut hs = self.on_click_handlers.values().map(|h| h.clone()).collect();
+        self.pending_handlers.append(&mut hs);
+    }
+    fn on_click(&mut self, hid: HandlerId, h: Handler<'a, Self>) {
+        self.on_click_handlers.insert(hid, h);
+    }
+}
+
+impl<'a> ILabel<'a> for Backend<'a> {
     fn get_label(&self) -> String {
         self.label.clone()
     }
@@ -64,7 +72,81 @@ impl<'a> ILabel<'a> for Button<'a> {
     }
 }
 
-impl<'a> EventHandler for Button<'a> {
+pub struct Builder<'a, BE: TButtonBackend<'a>, FE: TButtonFrontend<'a, BE>> {
+    rcfront: Rc<RefCell<FE>>,
+    phantom: PhantomData<&'a BE>,
+}
+
+impl<'a, BE, FE> Builder<'a, BE, FE>
+where
+    BE: TButtonBackend<'a>,
+    FE: TButtonFrontend<'a, BE>,
+{
+    pub fn builder() -> Self {
+        Self {
+            rcfront: FE::create(),
+            phantom: PhantomData,
+        }
+    }
+    pub fn set_label<S: Into<String>>(self, label: S) -> Self {
+        self.rcfront
+            .borrow_mut()
+            .backend()
+            .borrow_mut()
+            .set_label(label.into());
+        self
+    }
+    pub fn on_click(self, handler: impl Fn(Rc<RefCell<BE>>) + 'a) -> Self {
+        let rh = Rc::new(move |w| handler(w));
+        self.rcfront
+            .borrow_mut()
+            .backend()
+            .borrow_mut()
+            .on_click(handler_id(rh.clone()), rh.clone());
+        self
+    }
+    pub fn build(self) -> Rc<RefCell<FE>> {
+        self.rcfront
+    }
+}
+
+pub struct Frontend<'a, BE: TButtonBackend<'a>> {
+    rcback: Rc<RefCell<BE>>,
+    rect: Rect,
+    //    phantom: PhantomData<&'a T>,
+    rcself: Option<Weak<RefCell<Self>>>,
+}
+
+impl<'a, BE> TRcSelf for Frontend<'a, BE>
+where
+    BE: TButtonBackend<'a>,
+{
+    fn create() -> Rc<RefCell<Self>> {
+        let v = Rc::new(RefCell::new(Self {
+            rcback: BE::create(),
+            rect: Rect::zero(),
+            rcself: None, //            phantom: PhantomData,
+        }));
+        v.borrow_mut().rcself = Some(Rc::downgrade(&v.clone()));
+        v
+    }
+    fn rcself(&self) -> Rc<RefCell<Self>> {
+        self.rcself.as_ref().unwrap().upgrade().unwrap().clone()
+    }
+}
+impl<'a, BE> TButtonFrontend<'a, BE> for Frontend<'a, BE>
+where
+    BE: TButtonBackend<'a> + 'a,
+{
+    fn backend(&self) -> Rc<RefCell<BE>> {
+        self.rcback.clone()
+    }
+}
+
+impl<'a, T> EventHandler for Frontend<'a, T>
+where
+    T: TButtonBackend<'a>,
+{
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         Ok(())
     }
@@ -73,7 +155,11 @@ impl<'a> EventHandler for Button<'a> {
         let mut rect = self.rect;
         let margin = 5.;
         let press_offset = 10.;
-        let dxy = if self.touched { press_offset } else { 0. };
+        let dxy = if self.rcback.borrow_mut().is_touched() {
+            press_offset
+        } else {
+            0.
+        };
         rect.x += margin + dxy;
         rect.y += margin + dxy;
         rect.w -= margin * 2. + press_offset;
@@ -82,8 +168,7 @@ impl<'a> EventHandler for Button<'a> {
             .rectangle(DrawMode::fill(), rect, graphics::WHITE)
             .build(ctx)?;
         graphics::draw(ctx, &mesh, DrawParam::default())?;
-
-        let mut text = Text::new(self.label.clone());
+        let mut text = Text::new(self.rcback.borrow_mut().get_label());
         text.set_bounds([rect.w, rect.h], Align::Center);
         let tdh = (rect.h - text.height(ctx) as f32) / 2.;
         graphics::draw(
@@ -95,21 +180,25 @@ impl<'a> EventHandler for Button<'a> {
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, x: f32, y: f32) {
         if button == MouseButton::Left && self.rect.contains([x, y]) {
-            self.touched = true;
+            self.rcback.borrow_mut().set_touched(true);
         }
     }
 
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, _button: MouseButton, x: f32, y: f32) {
-        if self.touched && self.rect.contains([x, y]) {
-            self.touched = false;
-            self.fire_on_click();
+        let mut rcback = self.rcback.borrow_mut();
+        if rcback.is_touched() && self.rect.contains([x, y]) {
+            rcback.set_touched(false);
+            rcback.click();
         } else {
-            self.touched = false;
+            rcback.set_touched(false);
         }
     }
 }
 
-impl Layoutable for Button<'_> {
+impl<'a, T> Layoutable for Frontend<'a, T>
+where
+    T: TButtonBackend<'a>,
+{
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
     }
@@ -118,12 +207,16 @@ impl Layoutable for Button<'_> {
     }
 }
 
-impl<'a> Executable<'a> for Button<'a> {
+impl<'a, BE> Executable<'a> for Frontend<'a, BE>
+where
+    BE: TButtonBackend<'a> + 'a,
+{
     fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
-        self.pending_handlers.drain(..).collect()
+        collect_fired_actions(&mut *self.rcback.borrow_mut())
     }
 }
 
+/*
 pub struct ButtonBuilder<'a> {
     button: Rc<RefCell<Button<'a>>>,
 }
@@ -148,4 +241,4 @@ impl<'a> ButtonBuilder<'a> {
     pub fn build(self) -> Rc<RefCell<Button<'a>>> {
         self.button
     }
-}
+}*/

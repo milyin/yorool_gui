@@ -5,12 +5,12 @@ use ggez::event::{self, EventHandler, MouseButton};
 use ggez::graphics::{self, Color, Rect};
 use ggez::{Context, ContextBuilder, GameResult};
 
-use yorool_gui::gui::button::ButtonBuilder;
 use yorool_gui::gui::checkbox::CheckboxBuilder;
 use yorool_gui::gui::panel::PanelBuilder;
 use yorool_gui::gui::radio_group::RadioGroupBuilder;
 use yorool_gui::gui::ribbon::RibbonBuilder;
 use yorool_gui::gui::window_manager::WindowManager;
+use yorool_gui::gui::Button;
 
 struct GuiDemoState<'a> {
     window_manager: WindowManager<'a>,
@@ -60,6 +60,15 @@ impl<'a> RadioPanel {
             }
         };
 
+        let add = Button::builder()
+            .set_label("Add")
+            .on_click(add_radio)
+            .build();
+        let remove = Button::builder()
+            .set_label("Remove")
+            .on_click(remove_radio)
+            .build();
+
         let panel = PanelBuilder::new()
             .add_widget(
                 RibbonBuilder::new()
@@ -68,18 +77,8 @@ impl<'a> RadioPanel {
                     .add_widget(
                         RibbonBuilder::new()
                             .set_horizontal(true)
-                            .add_widget(
-                                ButtonBuilder::new()
-                                    .set_label("Add")
-                                    .on_click(add_radio)
-                                    .build(),
-                            )
-                            .add_widget(
-                                ButtonBuilder::new()
-                                    .set_label("Remove")
-                                    .on_click(remove_radio)
-                                    .build(),
-                            )
+                            .add_widget(add)
+                            .add_widget(remove)
                             .build(),
                     )
                     .build(),

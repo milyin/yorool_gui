@@ -34,6 +34,10 @@ pub trait ILabel<'a> {
     fn set_label(&mut self, label: String);
 }
 
+//pub type Button<'a> = Frontend<'a, Backend<'a>>;
+pub type Button<'a> =
+    button::Builder<'a, button::Backend<'a>, button::Frontend<'a, button::Backend<'a>>>;
+
 // Accordincly to discussions below there is still no api to compare only
 // data part of fat pointers. So using own api for now
 // https://github.com/rust-lang/rust/issues/63021

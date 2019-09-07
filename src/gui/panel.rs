@@ -1,4 +1,4 @@
-use crate::gui::{Executable, Layoutable, Widget};
+use crate::gui::{IActions, ILayout, Widget};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
@@ -50,7 +50,7 @@ impl EventHandler for Panel<'_> {
     }
 }
 
-impl Layoutable for Panel<'_> {
+impl ILayout for Panel<'_> {
     fn set_rect(&mut self, rect: Rect) {
         for w in &self.widgets {
             w.borrow_mut().set_rect(rect)
@@ -65,21 +65,21 @@ impl Layoutable for Panel<'_> {
     }
 }
 
-impl<'a> Executable<'a> for Panel<'a> {
-    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+impl<'a> IActions<'a> for Panel<'a> {
+    fn collect_fired(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         let mut v = Vec::new();
         for w in &mut self.widgets {
-            v.append(&mut w.borrow_mut().take_to_execute());
+            v.append(&mut w.borrow_mut().collect_fired());
         }
         v
     }
 }
 
-pub struct PanelBuilder<'a> {
+pub struct Builder<'a> {
     panel: Panel<'a>,
 }
 
-impl<'a> PanelBuilder<'a> {
+impl<'a> Builder<'a> {
     pub fn new() -> Self {
         Self {
             panel: Panel::new(),

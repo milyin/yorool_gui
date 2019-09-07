@@ -1,4 +1,4 @@
-use crate::gui::{is_same, Executable, ICheckbox, Layoutable};
+use crate::gui::{is_same, IActions, ICheckbox, ILayout};
 use ggez::event::EventHandler;
 use ggez::graphics::Rect;
 use ggez::input::mouse::MouseButton;
@@ -86,15 +86,15 @@ impl EventHandler for RadioGroup<'_> {
     }
 }
 
-impl Layoutable for RadioGroup<'_> {
+impl ILayout for RadioGroup<'_> {
     fn set_rect(&mut self, _rect: Rect) {}
     fn get_rect(&self) -> Rect {
         Rect::zero()
     }
 }
 
-impl<'a> Executable<'a> for RadioGroup<'a> {
-    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+impl<'a> IActions<'a> for RadioGroup<'a> {
+    fn collect_fired(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         Vec::new()
     }
 }

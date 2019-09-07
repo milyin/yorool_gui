@@ -1,4 +1,4 @@
-use crate::gui::{Layoutable, Widget};
+use crate::gui::{ILayout, Widget};
 use ggez::event::EventHandler;
 use ggez::graphics::Rect;
 use ggez::input::mouse::MouseButton;
@@ -55,7 +55,7 @@ impl EventHandler for WindowManager<'_> {
                 w.widget.borrow_mut().set_rect(w.rect.clone());
             }
             w.widget.borrow_mut().update(ctx)?;
-            for e in w.widget.borrow_mut().take_to_execute() {
+            for e in w.widget.borrow_mut().collect_fired() {
                 (*e)()
             }
         }
@@ -86,7 +86,7 @@ impl EventHandler for WindowManager<'_> {
     }
 }
 
-impl Layoutable for WindowManager<'_> {
+impl ILayout for WindowManager<'_> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
     }

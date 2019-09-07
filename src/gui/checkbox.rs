@@ -1,4 +1,4 @@
-use crate::gui::{is_same, Executable, ICheckbox, Layoutable};
+use crate::gui::{is_same, IActions, ICheckbox, ILayout};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::{self, DrawMode, DrawParam, MeshBuilder, Rect};
 use ggez::{Context, GameResult};
@@ -125,7 +125,7 @@ impl EventHandler for Checkbox<'_> {
     }
 }
 
-impl Layoutable for Checkbox<'_> {
+impl ILayout for Checkbox<'_> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
     }
@@ -134,8 +134,8 @@ impl Layoutable for Checkbox<'_> {
     }
 }
 
-impl<'a> Executable<'a> for Checkbox<'a> {
-    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+impl<'a> IActions<'a> for Checkbox<'a> {
+    fn collect_fired(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         self.pending_handlers.drain(..).collect()
     }
 }

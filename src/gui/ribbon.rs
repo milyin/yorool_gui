@@ -1,5 +1,5 @@
 use crate::gui::{is_same, Widget};
-use crate::gui::{Executable, Layoutable};
+use crate::gui::{IActions, ILayout};
 use ggez::event::{EventHandler, MouseButton};
 use ggez::graphics::Rect;
 use ggez::{Context, GameResult};
@@ -77,7 +77,7 @@ impl EventHandler for Ribbon<'_> {
     }
 }
 
-impl Layoutable for Ribbon<'_> {
+impl ILayout for Ribbon<'_> {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
         if self.horizontal {
@@ -103,21 +103,21 @@ impl Layoutable for Ribbon<'_> {
     }
 }
 
-impl<'a> Executable<'a> for Ribbon<'a> {
-    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+impl<'a> IActions<'a> for Ribbon<'a> {
+    fn collect_fired(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         let mut v = Vec::new();
         for w in &mut self.widgets {
-            v.append(&mut w.borrow_mut().take_to_execute());
+            v.append(&mut w.borrow_mut().collect_fired());
         }
         v
     }
 }
 
-pub struct RibbonBuilder<'a> {
+pub struct Builder<'a> {
     ribbon: Ribbon<'a>,
 }
 
-impl<'a> RibbonBuilder<'a> {
+impl<'a> Builder<'a> {
     pub fn new() -> Self {
         Self {
             ribbon: Ribbon::new(),

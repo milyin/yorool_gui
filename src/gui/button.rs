@@ -1,8 +1,5 @@
-use crate::gui::{Executable, ILabel, Layoutable};
-use crate::models::{
-    collect_fired_actions, handler_id, Handler, HandlerId, TButtonBackend, TButtonFrontend,
-    THandlers, TRcSelf,
-};
+use crate::gui::{collect_fired_actions, handler_id, Handler, HandlerId, THandlers, TRcSelf};
+use crate::gui::{IActions, ILabel, ILayout};
 use ggez::event::EventHandler;
 use ggez::graphics::{self, Align, DrawMode, DrawParam, MeshBuilder, Rect, Text};
 use ggez::input::mouse::MouseButton;
@@ -12,6 +9,45 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
+
+pub trait TBackend<'a>: THandlers<'a> + ILabel<'a> {
+    fn set_touched(&mut self, state: bool);
+    fn is_touched(&self) -> bool;
+    fn click(&mut self);
+    fn on_click(&mut self, hid: HandlerId, h: Handler<'a, Self>);
+}
+
+pub trait TFrontend<'a, BE: TBackend<'a>>: TRcSelf + ILayout + IActions<'a> {
+    fn backend(&self) -> Rc<RefCell<BE>>;
+}
+
+pub trait IButton<'a> {
+    fn set_touched(&mut self, state: bool);
+    fn is_touched(&self) -> bool;
+    fn click(&mut self);
+    fn on_click(&mut self, h: Handler<'a, dyn IButton<'a> + 'a>);
+}
+
+impl<'a, W> IButton<'a> for W
+where
+    W: TBackend<'a> + 'a,
+{
+    fn set_touched(&mut self, state: bool) {
+        self.set_touched(state)
+    }
+    fn is_touched(&self) -> bool {
+        self.is_touched()
+    }
+    fn click(&mut self) {
+        self.click()
+    }
+    fn on_click(&mut self, h: Handler<'a, dyn IButton<'a> + 'a>) {
+        self.on_click(handler_id(h.clone()), {
+            let rh = h.clone();
+            Rc::new(move |w| rh(w.clone()))
+        });
+    }
+}
 
 pub struct Backend<'a> {
     label: String,
@@ -47,7 +83,7 @@ impl<'a> THandlers<'a> for Backend<'a> {
     }
 }
 
-impl<'a> TButtonBackend<'a> for Backend<'a> {
+impl<'a> TBackend<'a> for Backend<'a> {
     fn set_touched(&mut self, state: bool) {
         self.touched = state
     }
@@ -72,17 +108,17 @@ impl<'a> ILabel<'a> for Backend<'a> {
     }
 }
 
-pub struct Builder<'a, BE: TButtonBackend<'a>, FE: TButtonFrontend<'a, BE>> {
+pub struct Builder<'a, BE: TBackend<'a>, FE: TFrontend<'a, BE>> {
     rcfront: Rc<RefCell<FE>>,
     phantom: PhantomData<&'a BE>,
 }
 
 impl<'a, BE, FE> Builder<'a, BE, FE>
 where
-    BE: TButtonBackend<'a>,
-    FE: TButtonFrontend<'a, BE>,
+    BE: TBackend<'a>,
+    FE: TFrontend<'a, BE>,
 {
-    pub fn builder() -> Self {
+    pub fn new() -> Self {
         Self {
             rcfront: FE::create(),
             phantom: PhantomData,
@@ -110,16 +146,15 @@ where
     }
 }
 
-pub struct Frontend<'a, BE: TButtonBackend<'a>> {
+pub struct Frontend<'a, BE: TBackend<'a>> {
     rcback: Rc<RefCell<BE>>,
     rect: Rect,
-    //    phantom: PhantomData<&'a T>,
     rcself: Option<Weak<RefCell<Self>>>,
 }
 
 impl<'a, BE> TRcSelf for Frontend<'a, BE>
 where
-    BE: TButtonBackend<'a>,
+    BE: TBackend<'a>,
 {
     fn create() -> Rc<RefCell<Self>> {
         let v = Rc::new(RefCell::new(Self {
@@ -134,9 +169,9 @@ where
         self.rcself.as_ref().unwrap().upgrade().unwrap().clone()
     }
 }
-impl<'a, BE> TButtonFrontend<'a, BE> for Frontend<'a, BE>
+impl<'a, BE> TFrontend<'a, BE> for Frontend<'a, BE>
 where
-    BE: TButtonBackend<'a> + 'a,
+    BE: TBackend<'a> + 'a,
 {
     fn backend(&self) -> Rc<RefCell<BE>> {
         self.rcback.clone()
@@ -145,7 +180,7 @@ where
 
 impl<'a, T> EventHandler for Frontend<'a, T>
 where
-    T: TButtonBackend<'a>,
+    T: TBackend<'a>,
 {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         Ok(())
@@ -195,9 +230,9 @@ where
     }
 }
 
-impl<'a, T> Layoutable for Frontend<'a, T>
+impl<'a, T> ILayout for Frontend<'a, T>
 where
-    T: TButtonBackend<'a>,
+    T: TBackend<'a>,
 {
     fn set_rect(&mut self, rect: Rect) {
         self.rect = rect;
@@ -207,38 +242,11 @@ where
     }
 }
 
-impl<'a, BE> Executable<'a> for Frontend<'a, BE>
+impl<'a, BE> IActions<'a> for Frontend<'a, BE>
 where
-    BE: TButtonBackend<'a> + 'a,
+    BE: TBackend<'a> + 'a,
 {
-    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
+    fn collect_fired(&mut self) -> Vec<Rc<dyn Fn() + 'a>> {
         collect_fired_actions(&mut *self.rcback.borrow_mut())
     }
 }
-
-/*
-pub struct ButtonBuilder<'a> {
-    button: Rc<RefCell<Button<'a>>>,
-}
-
-impl<'a> ButtonBuilder<'a> {
-    pub fn new() -> Self {
-        let button = Rc::new(RefCell::new(Button::new()));
-        button.borrow_mut().rcself = Some(Rc::downgrade(&button));
-        Self { button }
-    }
-
-    pub fn set_label<S: Into<String>>(self, label: S) -> Self {
-        self.button.borrow_mut().set_label(label.into());
-        self
-    }
-
-    pub fn on_click(self, handler: impl Fn(Rc<RefCell<Button<'a>>>) + 'a) -> Self {
-        self.button.borrow_mut().on_click(handler);
-        self
-    }
-
-    pub fn build(self) -> Rc<RefCell<Button<'a>>> {
-        self.button
-    }
-}*/

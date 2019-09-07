@@ -10,17 +10,48 @@ use ggez::graphics::Rect;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub trait Executable<'a> {
-    fn take_to_execute(&mut self) -> Vec<Rc<dyn Fn() + 'a>>;
+pub type Handler<'a, T> = Rc<dyn Fn(Rc<RefCell<T>>) + 'a>;
+
+pub type HandlerId = u64;
+
+pub fn handler_id<'a, T: ?Sized>(h: Handler<'a, T>) -> HandlerId {
+    h.as_ref() as *const _ as *const () as HandlerId
 }
 
-pub trait Layoutable {
+pub trait TRcSelf {
+    fn create() -> Rc<RefCell<Self>>;
+    fn rcself(&self) -> Rc<RefCell<Self>>;
+}
+
+pub trait THandlers<'a>: TRcSelf {
+    fn collect_fired_handlers(&mut self) -> Vec<Handler<'a, Self>>;
+    fn remove_handler(&mut self, hid: HandlerId);
+}
+
+pub fn collect_fired_actions<'a, T: THandlers<'a> + 'a>(widget: &mut T) -> Vec<Rc<dyn Fn() + 'a>> {
+    widget
+        .collect_fired_handlers()
+        .into_iter()
+        .map(|h| {
+            let rcself = widget.rcself().clone();
+            let rh = h.clone();
+            let f = move || rh(rcself.clone());
+            Rc::new(f) as Rc<dyn Fn() + 'a>
+        })
+        .collect()
+}
+
+pub trait IActions<'a> {
+    fn collect_fired(&mut self) -> Vec<Rc<dyn Fn() + 'a>>;
+}
+
+pub trait ILayout {
     fn set_rect(&mut self, rect: Rect);
     fn get_rect(&self) -> Rect;
 }
-pub trait Widget<'a>: EventHandler + Layoutable + Executable<'a> {}
+pub trait Widget<'a>: EventHandler + ILayout + IActions<'a> {}
 
-impl<'a, W> Widget<'a> for W where W: EventHandler + Layoutable + Executable<'a> {}
+impl<'a, W> Widget<'a> for W where W: EventHandler + ILayout + IActions<'a> {}
 
 pub trait ICheckbox<'a> {
     fn get_state(&self) -> bool;
@@ -34,9 +65,32 @@ pub trait ILabel<'a> {
     fn set_label(&mut self, label: String);
 }
 
-//pub type Button<'a> = Frontend<'a, Backend<'a>>;
-pub type Button<'a> =
+pub type ButtonBuilder<'a> =
     button::Builder<'a, button::Backend<'a>, button::Frontend<'a, button::Backend<'a>>>;
+
+pub fn button<'a>() -> ButtonBuilder<'a> {
+    ButtonBuilder::new()
+}
+
+pub type RibbonBuilder<'a> = ribbon::Builder<'a>;
+
+pub fn ribbon<'a>() -> RibbonBuilder<'a> {
+    RibbonBuilder::new()
+}
+
+pub fn row<'a>() -> RibbonBuilder<'a> {
+    RibbonBuilder::new().set_horizontal(true)
+}
+
+pub fn column<'a>() -> RibbonBuilder<'a> {
+    RibbonBuilder::new().set_horizontal(false)
+}
+
+pub type PanelBuilder<'a> = panel::Builder<'a>;
+
+pub fn panel<'a>() -> PanelBuilder<'a> {
+    PanelBuilder::new()
+}
 
 // Accordincly to discussions below there is still no api to compare only
 // data part of fat pointers. So using own api for now

@@ -8,7 +8,7 @@ pub mod window_manager;
 use ggez::event::EventHandler;
 use ggez::graphics::Rect;
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub type Handler<'a, T> = Rc<dyn Fn(Rc<RefCell<T>>) + 'a>;
 
@@ -20,7 +20,10 @@ pub fn handler_id<'a, T: ?Sized>(h: Handler<'a, T>) -> HandlerId {
 
 pub trait TRcSelf {
     fn create() -> Rc<RefCell<Self>>;
-    fn rcself(&self) -> Rc<RefCell<Self>>;
+    fn wrcself(&self) -> Weak<RefCell<Self>>;
+    fn rcself(&self) -> Rc<RefCell<Self>> {
+        self.wrcself().upgrade().unwrap()
+    }
 }
 
 pub trait THandlers<'a>: TRcSelf {
@@ -92,7 +95,7 @@ pub fn panel<'a>() -> PanelBuilder<'a> {
     PanelBuilder::new()
 }
 
-// Accordincly to discussions below there is still no api to compare only
+// Accordingly to discussions below there is still no api to compare only
 // data part of fat pointers. So using own api for now
 // https://github.com/rust-lang/rust/issues/63021
 // https://github.com/rust-lang/rust/pull/48814

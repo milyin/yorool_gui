@@ -69,8 +69,8 @@ impl TRcSelf for Backend<'_> {
         v.borrow_mut().rcself = Some(Rc::downgrade(&v.clone()));
         v
     }
-    fn rcself(&self) -> Rc<RefCell<Self>> {
-        self.rcself.as_ref().unwrap().upgrade().unwrap().clone()
+    fn wrcself(&self) -> Weak<RefCell<Self>> {
+        self.rcself.as_ref().unwrap().clone()
     }
 }
 
@@ -165,8 +165,8 @@ where
         v.borrow_mut().rcself = Some(Rc::downgrade(&v.clone()));
         v
     }
-    fn rcself(&self) -> Rc<RefCell<Self>> {
-        self.rcself.as_ref().unwrap().upgrade().unwrap().clone()
+    fn wrcself(&self) -> Weak<RefCell<Self>> {
+        self.rcself.as_ref().unwrap().clone()
     }
 }
 impl<'a, BE> TFrontend<'a, BE> for Frontend<'a, BE>
